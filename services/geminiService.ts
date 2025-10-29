@@ -7,7 +7,15 @@ if (!API_KEY) {
   console.warn("VITE_API_KEY environment variable not set. AI features will be limited.");
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY, vertexai: true });
+// Initialize AI client only if API key is available
+let ai: GoogleGenAI | null = null;
+if (API_KEY) {
+  try {
+    ai = new GoogleGenAI({ apiKey: API_KEY, vertexai: true });
+  } catch (error) {
+    console.error("Failed to initialize Google GenAI:", error);
+  }
+}
 
 // --- Schemas for structured responses ---
 
@@ -330,6 +338,14 @@ const ipAnalysisReportSchema = {
 // --- Functions ---
 
 export const getPulseAnalysis = async (query: string): Promise<PulseAnalysis> => {
+  if (!ai) {
+    console.warn("AI client not initialized. Returning mock data.");
+    return {
+      opportunities: ["AI features require API key configuration"],
+      threats: ["Please set VITE_API_KEY environment variable"]
+    };
+  }
+  
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -348,6 +364,14 @@ export const getPulseAnalysis = async (query: string): Promise<PulseAnalysis> =>
 };
 
 export const getDashboardInsights = async (role: CSuiteRole): Promise<DashboardInsight> => {
+    if (!ai) {
+        console.warn("AI client not initialized. Returning mock insights.");
+        return { 
+            title: "AI Insights Unavailable", 
+            points: ["Please configure VITE_API_KEY to enable AI features", "Contact your administrator for API key setup"] 
+        };
+    }
+    
     const prompt = `Generate strategic insights for a ${role} of a high-growth tech startup called 'Genesis Exchange'. Focus on key priorities and potential blind spots.`;
     try {
         const response = await ai.models.generateContent({
@@ -367,6 +391,15 @@ export const getDashboardInsights = async (role: CSuiteRole): Promise<DashboardI
 };
 
 export const analyzeDocument = async (documentName: string): Promise<AIParsedInsights> => {
+    if (!ai) {
+        console.warn("AI client not initialized. Returning mock analysis.");
+        return {
+            document_type: 'Analysis Unavailable',
+            summary: 'AI document analysis requires API key configuration. Please set VITE_API_KEY environment variable.',
+            key_entities: ['API key required', 'Contact administrator']
+        };
+    }
+    
     const prompt = `Analyze the following document filename and infer its contents: "${documentName}"`;
     try {
         const response = await ai.models.generateContent({
