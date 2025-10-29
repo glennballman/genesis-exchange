@@ -65,7 +65,8 @@ jobs:
           --memory 1Gi \
           --cpu 1 \
           --max-instances 10 \
-          --min-instances 0
+          --min-instances 0 \
+          --set-env-vars VITE_API_KEY=${{ secrets.GEMINI_API_KEY }}
 
     - name: Get service URL
       run: |
