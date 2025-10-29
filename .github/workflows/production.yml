@@ -41,7 +41,7 @@ jobs:
         project_id: ${{ env.PROJECT_ID }}
 
     - name: Configure Docker
-      run: gcloud auth configure-docker
+      run: gcloud auth configure-docker gcr.io
 
     - name: Build Docker image
       run: |
