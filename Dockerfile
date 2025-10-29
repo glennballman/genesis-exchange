@@ -34,5 +34,5 @@ COPY --from=builder /app/dist ./dist
 # Expose port 3000
 EXPOSE 3000
 
-# Start the application
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "3000"]
+# Start the application using serve
+CMD ["npx", "serve", "-s", "dist", "-l", "3000"]
