@@ -1,0 +1,26 @@
+{
+  "name": "genesis-exchange",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Genesis Exchange: The Alignment & Diligence Engine",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.23.1",
+    "recharts": "^2.12.7",
+    "@google/genai": "^1.20.0",
+    "marked": "^12.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11"
+  }
+}
