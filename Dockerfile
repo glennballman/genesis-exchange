@@ -34,5 +34,5 @@ COPY --from=builder /app/dist ./dist
 # Expose port 3000
 EXPOSE 3000
 
-# Start the application using serve
-CMD ["npx", "serve", "-s", "dist", "-l", "3000"]
+# Start the application using serve with dynamic port
+CMD ["sh", "-c", "npx serve -s dist -l ${PORT:-3000}"]
