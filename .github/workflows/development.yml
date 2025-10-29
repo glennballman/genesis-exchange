@@ -65,8 +65,7 @@ jobs:
           --memory 512Mi \
           --cpu 0.5 \
           --max-instances 5 \
-          --min-instances 0 \
-          --set-env-vars PORT=3000
+          --min-instances 0
 
     - name: Get service URL
       run: |
