@@ -23,7 +23,7 @@ if (API_KEY) {
 // --- Helper functions for other providers (minimal JSON responses) ---
 async function openaiJson(systemPrompt: string, userPrompt: string): Promise<any> {
   try {
-    const response = await fetch('/api/openai/chat/completions', {
+    const response = await fetch('/api/llm/openai/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -52,7 +52,7 @@ async function openaiJson(systemPrompt: string, userPrompt: string): Promise<any
 
 async function anthropicJson(systemPrompt: string, userPrompt: string): Promise<any> {
   try {
-    const response = await fetch('/api/anthropic/messages', {
+    const response = await fetch('/api/llm/anthropic/messages', {
       method: 'POST',
       headers: {
         'content-type': 'application/json'

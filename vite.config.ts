@@ -10,10 +10,10 @@ export default defineConfig(({ mode }) => {
       open: true,
       proxy: {
         // Proxy OpenAI requests during dev; inject server-side auth header
-        '/api/openai': {
+        '/api/llm/openai': {
           target: 'https://api.openai.com',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/openai/, '/v1'),
+          rewrite: (path) => path.replace(/^\/api\/llm\/openai/, '/v1'),
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyReq) => {
               if (env.VITE_OPENAI_API_KEY) {
@@ -24,10 +24,10 @@ export default defineConfig(({ mode }) => {
           },
         },
         // Proxy Anthropic requests during dev; inject server-side auth header
-        '/api/anthropic': {
+        '/api/llm/anthropic': {
           target: 'https://api.anthropic.com',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/anthropic/, '/v1'),
+          rewrite: (path) => path.replace(/^\/api\/llm\/anthropic/, '/v1'),
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyReq) => {
               if (env.VITE_ANTHROPIC_API_KEY) {
