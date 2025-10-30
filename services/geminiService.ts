@@ -3,6 +3,8 @@ import { getSelectedProvider } from './aiProvider';
 import { PulseAnalysis, DashboardInsight, CSuiteRole, ScoreComponent, TakeActionPlan, ImprovementTips, QuizQuestion, EGumpResponse, AIParsedInsights, IpAnalysisReport, ProfessionalAchievement, Mission, User, TeamAlignmentReport, Principal, DiligenceItem, PreliminaryInvestorReport, VaultDocument, SuggestedResponse, DetailedInvestorAnalysis } from '../types';
 
 const API_KEY = import.meta.env.VITE_API_KEY;
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
+const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
 
 if (!API_KEY) {
   console.warn("VITE_API_KEY environment variable not set. AI features will be limited.");
@@ -15,6 +17,70 @@ if (API_KEY) {
     ai = new GoogleGenAI({ apiKey: API_KEY, vertexai: true });
   } catch (error) {
     console.error("Failed to initialize Google GenAI:", error);
+  }
+}
+
+// --- Helper functions for other providers (minimal JSON responses) ---
+async function openaiJson(systemPrompt: string, userPrompt: string): Promise<any> {
+  if (!OPENAI_API_KEY) throw new Error('OpenAI key missing');
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ]
+      })
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`OpenAI HTTP ${response.status}: ${errText}`);
+    }
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    return JSON.parse(content);
+  } catch (err) {
+    console.error('OpenAI request failed:', err);
+    throw err;
+  }
+}
+
+async function anthropicJson(systemPrompt: string, userPrompt: string): Promise<any> {
+  if (!ANTHROPIC_API_KEY) throw new Error('Anthropic key missing');
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-latest',
+        max_tokens: 2000,
+        system: systemPrompt + '\nYou MUST return a single JSON object and nothing else.',
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: userPrompt }] }
+        ]
+      })
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Anthropic HTTP ${response.status}: ${errText}`);
+    }
+    const data = await response.json();
+    const text = data?.content?.[0]?.text;
+    return JSON.parse(text);
+  } catch (err) {
+    console.error('Anthropic request failed:', err);
+    throw err;
   }
 }
 
@@ -339,12 +405,16 @@ const ipAnalysisReportSchema = {
 // --- Functions ---
 
 export const getPulseAnalysis = async (query: string): Promise<PulseAnalysis> => {
-  if (getSelectedProvider() !== 'gemini') {
-    console.warn("Active provider not implemented yet:", getSelectedProvider());
-    return {
-      opportunities: ["Selected provider not yet implemented"],
-      threats: ["Switch to Gemini or wait for provider support"]
-    };
+  const provider = getSelectedProvider();
+  if (provider === 'openai') {
+    const sys = 'You are the Proactive Pulse Engine. Return a concise JSON with arrays: opportunities, threats.';
+    const res = await openaiJson(sys, query);
+    return { opportunities: res.opportunities || [], threats: res.threats || [] };
+  }
+  if (provider === 'anthropic') {
+    const sys = 'You are the Proactive Pulse Engine. Return a concise JSON with arrays: opportunities, threats.';
+    const res = await anthropicJson(sys, query);
+    return { opportunities: res.opportunities || [], threats: res.threats || [] };
   }
   if (!ai) {
     console.warn("AI client not initialized. Returning mock data.");
@@ -372,15 +442,18 @@ export const getPulseAnalysis = async (query: string): Promise<PulseAnalysis> =>
 };
 
 export const getDashboardInsights = async (role: CSuiteRole): Promise<DashboardInsight> => {
-    if (getSelectedProvider() !== 'gemini') {
-        console.warn("Active provider not implemented yet:", getSelectedProvider());
-        return { 
-            title: "AI Insights Unavailable (provider pending)", 
-            points: [
-                "Selected provider is not yet wired",
-                "Switch to Gemini or add API and provider support"
-            ] 
-        };
+    const provider = getSelectedProvider();
+    if (provider === 'openai') {
+        const sys = 'You are a world-class executive coach. Return JSON with title and points (array of strings).';
+        const user = `Generate strategic insights for a ${role} of a high-growth tech startup called 'Genesis Exchange'. Focus on key priorities and blind spots.`;
+        const res = await openaiJson(sys, user);
+        return { title: res.title || 'Insights', points: res.points || [] };
+    }
+    if (provider === 'anthropic') {
+        const sys = 'You are a world-class executive coach. Return JSON with title and points (array of strings).';
+        const user = `Generate strategic insights for a ${role} of a high-growth tech startup called 'Genesis Exchange'. Focus on key priorities and blind spots.`;
+        const res = await anthropicJson(sys, user);
+        return { title: res.title || 'Insights', points: res.points || [] };
     }
     if (!ai) {
         console.warn("AI client not initialized. Returning mock insights.");
@@ -409,12 +482,25 @@ export const getDashboardInsights = async (role: CSuiteRole): Promise<DashboardI
 };
 
 export const analyzeDocument = async (documentName: string): Promise<AIParsedInsights> => {
-    if (getSelectedProvider() !== 'gemini') {
-        console.warn("Active provider not implemented yet:", getSelectedProvider());
+    const provider = getSelectedProvider();
+    if (provider === 'openai') {
+        const sys = 'You are an AI document classifier. Return JSON with document_type, summary, key_entities (array of strings).';
+        const user = `Analyze the following document filename and infer its contents: "${documentName}"`;
+        const res = await openaiJson(sys, user);
         return {
-            document_type: 'Provider Not Implemented',
-            summary: 'Switch to Gemini or wait for provider integration.',
-            key_entities: []
+            document_type: res.document_type || 'Unknown',
+            summary: res.summary || '',
+            key_entities: Array.isArray(res.key_entities) ? res.key_entities : []
+        };
+    }
+    if (provider === 'anthropic') {
+        const sys = 'You are an AI document classifier. Return JSON with document_type, summary, key_entities (array of strings).';
+        const user = `Analyze the following document filename and infer its contents: "${documentName}"`;
+        const res = await anthropicJson(sys, user);
+        return {
+            document_type: res.document_type || 'Unknown',
+            summary: res.summary || '',
+            key_entities: Array.isArray(res.key_entities) ? res.key_entities : []
         };
     }
     if (!ai) {
@@ -561,9 +647,18 @@ export const analyzePrincipalWebsite = async (url: string): Promise<DetailedInve
 };
 
 export const generateAlignmentNarrative = async (source: Principal, target: Principal, conflict: boolean): Promise<string> => {
-    if (getSelectedProvider() !== 'gemini') {
-        console.warn("Active provider not implemented yet:", getSelectedProvider());
-        return 'Alignment narrative unavailable: selected provider not yet implemented.';
+    const provider = getSelectedProvider();
+    if (provider === 'openai' || provider === 'anthropic') {
+        const sys = 'You are an expert investment analyst. Return JSON with a single field: narrative (string).';
+        const user = conflict ? `The following two principals have a values conflict. Explain briefly why they are not a good match.
+Source: ${source.name}, exclusions: ${source.exclusions.join(', ')}
+Target: ${target.name}, mission: ${target.missionStatement}
+Return JSON {"narrative": "..."}` : `Analyze the two principals below and generate a concise narrative explaining why they are a strong potential match.
+Source: ${source.name}, mission: ${source.missionStatement}, values: ${source.values.join(', ')}
+Target: ${target.name}, mission: ${target.missionStatement}, values: ${target.values.join(', ')}
+Return JSON {"narrative": "..."}`;
+        const res = provider === 'openai' ? await openaiJson(sys, user) : await anthropicJson(sys, user);
+        return res.narrative || 'No narrative generated.';
     }
     let prompt;
     if (conflict) {
@@ -617,13 +712,26 @@ export const generateAlignmentNarrative = async (source: Principal, target: Prin
 };
 
 export const generateTeamAlignmentReport = async (mission: Mission, team: User[]): Promise<Omit<TeamAlignmentReport, 'individualReports' | 'teamAmbitionIndex' | 'teamTransparencyIndex'>> => {
-    if (getSelectedProvider() !== 'gemini') {
-        console.warn("Active provider not implemented yet:", getSelectedProvider());
+    const provider = getSelectedProvider();
+    if (provider === 'openai' || provider === 'anthropic') {
+        const sys = 'You are an expert organizational psychologist. Return JSON with alignmentScore (0-100), executiveSummary (string), keySynergies (array), areasOfDivergence (array).';
+        const teamGoals = team.map(member => {
+          const sharedGoals = (member.goals || [])
+            .filter(g => g.sharingLevel !== 'Private')
+            .map(g => `- ${g.description} (${g.targetDate})`)
+            .join('\n');
+          const personalMission = (member.personalMission?.sharingLevel !== 'Private' && member.personalMission?.statement)
+            ? `\\n  Personal Mission: ${member.personalMission.statement}`
+            : '';
+          return `Member: ${member.name} (${member.role})\n  Shared Goals:\n${sharedGoals || '  (No shared goals)'}${personalMission}`;
+        }).join('\n\n');
+        const user = `Company Mission: ${mission.statement}\n\nTeam:\n${teamGoals}`;
+        const res = provider === 'openai' ? await openaiJson(sys, user) : await anthropicJson(sys, user);
         return {
-            alignmentScore: 0,
-            executiveSummary: 'Team alignment analysis unavailable: selected provider not yet implemented.',
-            keySynergies: [],
-            areasOfDivergence: []
+          alignmentScore: Math.max(0, Math.min(100, res.alignmentScore ?? 0)),
+          executiveSummary: res.executiveSummary || '',
+          keySynergies: Array.isArray(res.keySynergies) ? res.keySynergies : [],
+          areasOfDivergence: Array.isArray(res.areasOfDivergence) ? res.areasOfDivergence : []
         };
     }
     const teamGoals = team.map(member => {
