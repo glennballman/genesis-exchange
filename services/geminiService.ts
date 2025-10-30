@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { PulseAnalysis, DashboardInsight, CSuiteRole, ScoreComponent, TakeActionPlan, ImprovementTips, QuizQuestion, EGumpResponse, AIParsedInsights, IpAnalysisReport, ProfessionalAchievement, Mission, User, TeamAlignmentReport, Principal, DiligenceItem, PreliminaryInvestorReport, VaultDocument, SuggestedResponse, DetailedInvestorAnalysis } from '../types';
+import { getCurrentProvider, getProviderLabel, providerHasKey, type AIProvider } from './aiProvider';
 
 const API_KEY = import.meta.env.VITE_API_KEY;
 
@@ -16,6 +17,80 @@ if (API_KEY) {
     console.error("Failed to initialize Google GenAI:", error);
   }
 }
+
+const OPENAI_MODEL = 'gpt-4o-mini';
+const ANTHROPIC_MODEL = 'claude-3-5-sonnet-latest';
+
+const safeParseJson = <T>(text: string, context: string): T => {
+  try {
+    return JSON.parse(text) as T;
+  } catch (error) {
+    console.error(`Failed to parse JSON for ${context}:`, text, error);
+    throw new Error(`Invalid JSON response for ${context}`);
+  }
+};
+
+const anthropicJson = async <T>(systemPrompt: string, userPrompt: string, context: string, maxTokens = 2000): Promise<T> => {
+  const response = await fetch('/api/llm/anthropic', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      system: systemPrompt,
+      max_tokens: maxTokens,
+      response_format: { type: 'json' },
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: userPrompt
+            }
+          ]
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Anthropic request failed for ${context}:`, errorText);
+    throw new Error(`Anthropic request failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data?.content?.[0]?.text ?? '';
+  return safeParseJson<T>(text, context);
+};
+
+const openAiJson = async <T>(systemPrompt: string, userPrompt: string, context: string, maxTokens = 2000): Promise<T> => {
+  const response = await fetch('/api/llm/openai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      max_tokens: maxTokens,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`OpenAI request failed for ${context}:`, errorText);
+    throw new Error(`OpenAI request failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content = data?.choices?.[0]?.message?.content ?? '';
+  return safeParseJson<T>(content, context);
+};
+
+const providerMissingKeyMessage = (provider: AIProvider) => `AI provider ${getProviderLabel(provider)} is not configured. Please add the API key to your environment.`;
 
 // --- Schemas for structured responses ---
 
@@ -535,6 +610,52 @@ export const analyzePrincipalWebsite = async (url: string): Promise<DetailedInve
 };
 
 export const generateAlignmentNarrative = async (source: Principal, target: Principal, conflict: boolean): Promise<string> => {
+    const provider = getCurrentProvider();
+    const fallbackConflict = "Could not generate alignment conflict narrative due to a service error.";
+    const fallbackMatch = "Could not generate alignment narrative due to a service error.";
+    const fallback = conflict ? fallbackConflict : fallbackMatch;
+
+    const systemPrompt = conflict
+        ? 'You are a risk management analyst. Respond with a JSON object: {"narrative": "..."} explaining why these two principals are misaligned.'
+        : 'You are a strategic investment analyst. Respond with a JSON object: {"narrative": "..."} summarizing the strengths of this match.';
+
+    const userPrompt = conflict
+        ? `Source Principal (${source.type})\nName: ${source.name}\nExclusions: ${source.exclusions.join(', ')}\n\nTarget Principal (${target.type})\nName: ${target.name}\nMission: ${target.missionStatement}`
+        : `Source Principal (${source.type})\nName: ${source.name}\nMission: ${source.missionStatement}\nValues: ${source.values.join(', ')}\n\nTarget Principal (${target.type})\nName: ${target.name}\nMission: ${target.missionStatement}\nValues: ${target.values.join(', ')}`;
+
+    if (provider === 'anthropic') {
+        if (!providerHasKey('anthropic')) {
+            console.warn(providerMissingKeyMessage('anthropic'));
+            return fallback;
+        }
+        try {
+            const result = await anthropicJson<{ narrative: string }>(systemPrompt, userPrompt, 'alignment narrative', 800);
+            return result.narrative;
+        } catch (error) {
+            console.error("Anthropic error generating alignment narrative:", error);
+            return fallback;
+        }
+    }
+
+    if (provider === 'openai') {
+        if (!providerHasKey('openai')) {
+            console.warn(providerMissingKeyMessage('openai'));
+            return fallback;
+        }
+        try {
+            const result = await openAiJson<{ narrative: string }>(systemPrompt, userPrompt, 'alignment narrative', 800);
+            return result.narrative;
+        } catch (error) {
+            console.error("OpenAI error generating alignment narrative:", error);
+            return fallback;
+        }
+    }
+
+    if (!ai) {
+        console.warn("Gemini client not initialized. Returning fallback narrative.");
+        return fallback;
+    }
+
     let prompt;
     if (conflict) {
         prompt = `
@@ -582,11 +703,19 @@ export const generateAlignmentNarrative = async (source: Principal, target: Prin
         return result.narrative;
     } catch (error) {
         console.error("Error generating alignment narrative:", error);
-        return "Could not generate alignment narrative due to a service error.";
+        return fallback;
     }
 };
 
 export const generateTeamAlignmentReport = async (mission: Mission, team: User[]): Promise<Omit<TeamAlignmentReport, 'individualReports' | 'teamAmbitionIndex' | 'teamTransparencyIndex'>> => {
+    const provider = getCurrentProvider();
+    const fallbackReport: Omit<TeamAlignmentReport, 'individualReports' | 'teamAmbitionIndex' | 'teamTransparencyIndex'> = {
+        alignmentScore: 0,
+        executiveSummary: 'AI-generated team alignment insights are unavailable because the selected provider is not configured.',
+        keySynergies: ['Configure your AI provider to unlock synergy insights.'],
+        areasOfDivergence: ['Configure your AI provider to surface potential misalignments.']
+    };
+
     const teamGoals = team.map(member => {
         const sharedGoals = (member.goals || [])
             .filter(g => g.sharingLevel !== 'Private')
@@ -599,6 +728,40 @@ export const generateTeamAlignmentReport = async (mission: Mission, team: User[]
 
         return `Member: ${member.name} (${member.role})\n  Shared Goals:\n${sharedGoals || '  (No shared goals)'}${personalMission}`;
     }).join('\n\n');
+
+    const userPrompt = `Company Mission:\n${mission.statement}\n\nTeam Composition & Shared Ambitions:\n${teamGoals}`;
+    const systemPrompt = 'You are an expert organizational psychologist supporting venture-backed teams. Respond with a JSON object containing alignmentScore (0-100), executiveSummary, keySynergies (array), and areasOfDivergence (array).';
+
+    if (provider === 'anthropic') {
+        if (!providerHasKey('anthropic')) {
+            console.warn(providerMissingKeyMessage('anthropic'));
+            return fallbackReport;
+        }
+        try {
+            return await anthropicJson<Omit<TeamAlignmentReport, 'individualReports' | 'teamAmbitionIndex' | 'teamTransparencyIndex'>>(systemPrompt, userPrompt, 'team alignment report', 1200);
+        } catch (error) {
+            console.error('Anthropic error generating team alignment report:', error);
+            return fallbackReport;
+        }
+    }
+
+    if (provider === 'openai') {
+        if (!providerHasKey('openai')) {
+            console.warn(providerMissingKeyMessage('openai'));
+            return fallbackReport;
+        }
+        try {
+            return await openAiJson<Omit<TeamAlignmentReport, 'individualReports' | 'teamAmbitionIndex' | 'teamTransparencyIndex'>>(systemPrompt, userPrompt, 'team alignment report', 1200);
+        } catch (error) {
+            console.error('OpenAI error generating team alignment report:', error);
+            return fallbackReport;
+        }
+    }
+
+    if (!ai) {
+        console.warn('Gemini client not initialized. Returning fallback team alignment report.');
+        return fallbackReport;
+    }
 
     const prompt = `
     As an expert organizational psychologist and venture capital partner, analyze the alignment between a specific mission and the team responsible for it.
@@ -630,7 +793,7 @@ export const generateTeamAlignmentReport = async (mission: Mission, team: User[]
         return JSON.parse(response.text) as TeamAlignmentReport;
     } catch (error) {
         console.error("Error generating team alignment report:", error);
-        throw new Error("Failed to generate team alignment report.");
+        return fallbackReport;
     }
 };
 
