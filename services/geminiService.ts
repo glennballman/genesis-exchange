@@ -22,12 +22,10 @@ if (API_KEY) {
 
 // --- Helper functions for other providers (minimal JSON responses) ---
 async function openaiJson(systemPrompt: string, userPrompt: string): Promise<any> {
-  if (!OPENAI_API_KEY) throw new Error('OpenAI key missing');
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('/api/openai/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -53,13 +51,10 @@ async function openaiJson(systemPrompt: string, userPrompt: string): Promise<any
 }
 
 async function anthropicJson(systemPrompt: string, userPrompt: string): Promise<any> {
-  if (!ANTHROPIC_API_KEY) throw new Error('Anthropic key missing');
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/anthropic/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
         'content-type': 'application/json'
       },
       body: JSON.stringify({
