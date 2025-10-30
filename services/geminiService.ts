@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from '@google/genai';
+import { getSelectedProvider } from './aiProvider';
 import { PulseAnalysis, DashboardInsight, CSuiteRole, ScoreComponent, TakeActionPlan, ImprovementTips, QuizQuestion, EGumpResponse, AIParsedInsights, IpAnalysisReport, ProfessionalAchievement, Mission, User, TeamAlignmentReport, Principal, DiligenceItem, PreliminaryInvestorReport, VaultDocument, SuggestedResponse, DetailedInvestorAnalysis } from '../types';
 
 const API_KEY = import.meta.env.VITE_API_KEY;
@@ -338,6 +339,13 @@ const ipAnalysisReportSchema = {
 // --- Functions ---
 
 export const getPulseAnalysis = async (query: string): Promise<PulseAnalysis> => {
+  if (getSelectedProvider() !== 'gemini') {
+    console.warn("Active provider not implemented yet:", getSelectedProvider());
+    return {
+      opportunities: ["Selected provider not yet implemented"],
+      threats: ["Switch to Gemini or wait for provider support"]
+    };
+  }
   if (!ai) {
     console.warn("AI client not initialized. Returning mock data.");
     return {
@@ -364,6 +372,16 @@ export const getPulseAnalysis = async (query: string): Promise<PulseAnalysis> =>
 };
 
 export const getDashboardInsights = async (role: CSuiteRole): Promise<DashboardInsight> => {
+    if (getSelectedProvider() !== 'gemini') {
+        console.warn("Active provider not implemented yet:", getSelectedProvider());
+        return { 
+            title: "AI Insights Unavailable (provider pending)", 
+            points: [
+                "Selected provider is not yet wired",
+                "Switch to Gemini or add API and provider support"
+            ] 
+        };
+    }
     if (!ai) {
         console.warn("AI client not initialized. Returning mock insights.");
         return { 
@@ -391,6 +409,14 @@ export const getDashboardInsights = async (role: CSuiteRole): Promise<DashboardI
 };
 
 export const analyzeDocument = async (documentName: string): Promise<AIParsedInsights> => {
+    if (getSelectedProvider() !== 'gemini') {
+        console.warn("Active provider not implemented yet:", getSelectedProvider());
+        return {
+            document_type: 'Provider Not Implemented',
+            summary: 'Switch to Gemini or wait for provider integration.',
+            key_entities: []
+        };
+    }
     if (!ai) {
         console.warn("AI client not initialized. Returning mock analysis.");
         return {
@@ -535,6 +561,10 @@ export const analyzePrincipalWebsite = async (url: string): Promise<DetailedInve
 };
 
 export const generateAlignmentNarrative = async (source: Principal, target: Principal, conflict: boolean): Promise<string> => {
+    if (getSelectedProvider() !== 'gemini') {
+        console.warn("Active provider not implemented yet:", getSelectedProvider());
+        return 'Alignment narrative unavailable: selected provider not yet implemented.';
+    }
     let prompt;
     if (conflict) {
         prompt = `
@@ -587,6 +617,15 @@ export const generateAlignmentNarrative = async (source: Principal, target: Prin
 };
 
 export const generateTeamAlignmentReport = async (mission: Mission, team: User[]): Promise<Omit<TeamAlignmentReport, 'individualReports' | 'teamAmbitionIndex' | 'teamTransparencyIndex'>> => {
+    if (getSelectedProvider() !== 'gemini') {
+        console.warn("Active provider not implemented yet:", getSelectedProvider());
+        return {
+            alignmentScore: 0,
+            executiveSummary: 'Team alignment analysis unavailable: selected provider not yet implemented.',
+            keySynergies: [],
+            areasOfDivergence: []
+        };
+    }
     const teamGoals = team.map(member => {
         const sharedGoals = (member.goals || [])
             .filter(g => g.sharingLevel !== 'Private')

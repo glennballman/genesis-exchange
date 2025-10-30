@@ -1,9 +1,18 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { getSelectedProvider, setSelectedProvider } from '../services/aiProvider';
 
 const Header: React.FC = () => {
-  const providerRaw = (import.meta.env.VITE_AI_PROVIDER as string | undefined) || 'gemini';
-  const provider = providerRaw.toLowerCase();
+  const [provider, setProvider] = useState(getSelectedProvider());
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      // keep in sync if changed elsewhere
+      setProvider(getSelectedProvider());
+    };
+    window.addEventListener('ai-provider-changed', handler);
+    return () => window.removeEventListener('ai-provider-changed', handler);
+  }, []);
   const geminiKey = import.meta.env.VITE_API_KEY as string | undefined;
   const openaiKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
   const anthropicKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
@@ -41,6 +50,20 @@ const Header: React.FC = () => {
             />
             {statusText}
           </span>
+          <select
+            aria-label="AI Provider"
+            className="bg-gray-800/80 text-gray-200 text-xs rounded-md border border-gray-700 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            value={provider}
+            onChange={(e) => {
+              const next = e.target.value as 'gemini' | 'openai' | 'anthropic';
+              setSelectedProvider(next);
+              setProvider(next);
+            }}
+          >
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+          </select>
         </div>
     </header>
   );
