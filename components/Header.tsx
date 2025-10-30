@@ -2,9 +2,19 @@
 import React from 'react';
 
 const Header: React.FC = () => {
-  const apiKey = import.meta.env.VITE_API_KEY as string | undefined;
-  const isActive = Boolean(apiKey);
-  const statusText = isActive ? 'Gemini: Active' : 'Gemini: Off';
+  const providerRaw = (import.meta.env.VITE_AI_PROVIDER as string | undefined) || 'gemini';
+  const provider = providerRaw.toLowerCase();
+  const geminiKey = import.meta.env.VITE_API_KEY as string | undefined;
+  const openaiKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
+  const anthropicKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
+
+  const isActive =
+    (provider === 'gemini' && !!geminiKey) ||
+    (provider === 'openai' && !!openaiKey) ||
+    (provider === 'anthropic' && !!anthropicKey);
+
+  const providerLabel = provider === 'openai' ? 'OpenAI' : provider === 'anthropic' ? 'Anthropic' : 'Gemini';
+  const statusText = `${providerLabel}: ${isActive ? 'Active' : 'Off'}`;
   const statusClasses = isActive
     ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
     : 'bg-amber-500/10 text-amber-300 border-amber-400/30';
