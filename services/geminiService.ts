@@ -24,7 +24,17 @@ const ANTHROPIC_MODEL = import.meta.env.VITE_ANTHROPIC_MODEL || 'claude-3-5-sonn
 
 const safeParseJson = <T>(text: string, context: string): T => {
   try {
-    return JSON.parse(text) as T;
+    let normalized = text.trim();
+
+    if (normalized.startsWith('```')) {
+      normalized = normalized.replace(/^```[a-zA-Z0-9]*\s*/i, '');
+      if (normalized.endsWith('```')) {
+        normalized = normalized.slice(0, -3);
+      }
+      normalized = normalized.trim();
+    }
+
+    return JSON.parse(normalized) as T;
   } catch (error) {
     console.error(`Failed to parse JSON for ${context}:`, text, error);
     throw new Error(`Invalid JSON response for ${context}`);
