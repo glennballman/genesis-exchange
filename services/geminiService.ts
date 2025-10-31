@@ -3,6 +3,7 @@ import { PulseAnalysis, DashboardInsight, CSuiteRole, ScoreComponent, TakeAction
 import { getCurrentProvider, getProviderLabel, providerHasKey, type AIProvider } from './aiProvider';
 
 const API_KEY = import.meta.env.VITE_API_KEY;
+const USE_VERTEX_AI = (import.meta.env.VITE_USE_VERTEX ?? 'false') === 'true';
 
 if (!API_KEY) {
   console.warn("VITE_API_KEY environment variable not set. AI features will be limited.");
@@ -12,7 +13,7 @@ if (!API_KEY) {
 let ai: GoogleGenAI | null = null;
 if (API_KEY) {
   try {
-    ai = new GoogleGenAI({ apiKey: API_KEY, vertexai: true });
+    ai = new GoogleGenAI({ apiKey: API_KEY, vertexai: USE_VERTEX_AI });
   } catch (error) {
     console.error("Failed to initialize Google GenAI:", error);
   }
