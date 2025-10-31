@@ -20,7 +20,7 @@ if (API_KEY) {
 }
 
 const OPENAI_MODEL = 'gpt-4o-mini';
-const ANTHROPIC_MODEL = 'claude-3-5-sonnet-latest';
+const ANTHROPIC_MODEL = import.meta.env.VITE_ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022';
 
 const safeParseJson = <T>(text: string, context: string): T => {
   try {
