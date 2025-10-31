@@ -39,7 +39,6 @@ const anthropicJson = async <T>(systemPrompt: string, userPrompt: string, contex
       model: ANTHROPIC_MODEL,
       system: systemPrompt,
       max_tokens: maxTokens,
-      response_format: { type: 'json' },
       messages: [
         {
           role: 'user',
