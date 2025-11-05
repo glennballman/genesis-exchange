@@ -83,13 +83,21 @@ export interface DashboardInsight {
 
 // Type for the Intake Wizard
 export interface WizardFormData {
-    companyName: string;
-    industry: string;
-    oneLiner: string;
-    monthlyRevenue: number;
-    monthlyBurn: number;
-    missionStatement: string;
+    companyName?: string;
+    industry?: string;
+    oneLiner?: string;
+    monthlyRevenue?: number;
+    monthlyBurn?: number;
+    missionStatement?: string;
+    fullName?: string;
+    title?: string;
+    role?: string;
+    linkedinUrl?: string;
+    achievements?: { id: string; description: string }[];
+    goals?: { id: string; description: string }[];
+    interests?: { id: string; description: string }[];
 }
+
 
 // --- Intelligent Diligence Engine Types ---
 export type DiligenceItemCategory = 'Financials' | 'Legal' | 'Team' | 'IP' | 'Market' | 'Product' | 'Other';
@@ -386,7 +394,6 @@ export interface ActionPlanItem {
     scoreComponent: ScoreComponent;
     aiSummary: string;
     takeActionPlan: TakeActionPlan;
-    improvementTips: ImprovementTips;
     status: ActionPlanStatus;
     assignedTo: User;
     delegationHistory: DelegationEntry[];

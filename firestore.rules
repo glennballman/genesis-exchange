@@ -1,0 +1,18 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Allow public read access for all documents. This is necessary
+    // for the public-facing parts of the application to work.
+    match /{document=**} {
+      allow read: if true;
+    }
+
+    // Secure the teamMembers collection.
+    // Only authenticated users can create, update, or delete team members.
+    match /teamMembers/{memberId} {
+      allow create, update, delete: if request.auth != null;
+    }
+  }
+}

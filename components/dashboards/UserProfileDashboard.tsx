@@ -20,8 +20,12 @@ const UserProfileDashboard: React.FC = () => {
 
     useEffect(() => {
         refreshProfile();
+        const unsubscribe = userProfileStore.subscribe(refreshProfile);
         window.addEventListener('focus', refreshProfile);
-        return () => window.removeEventListener('focus', refreshProfile);
+        return () => {
+            unsubscribe();
+            window.removeEventListener('focus', refreshProfile);
+        }
     }, []);
 
     if (!profile) {
@@ -51,7 +55,7 @@ const UserProfileDashboard: React.FC = () => {
                             <Icon name="gump" className="w-8 h-8 text-yellow-400" />
                             <h2 className="text-xl font-semibold text-white">Total Genesis U Score</h2>
                         </div>
-                        <div className="text-4xl font-bold text-yellow-300">{profile.gumpPoints.toLocaleString()} pts</div>
+                        <div className="text-4xl font-bold text-yellow-300">{profile.gumpPoints?.toLocaleString() || 0} pts</div>
                     </div>
                 </Card>
 

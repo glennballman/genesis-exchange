@@ -1,13 +1,28 @@
 
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { genesisScoreData } from '../../data/genesisData';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useMasterDashboardStore } from '../../services/masterDashboardStore';
 import ScoreBreakdownChart from '../ScoreBreakdownChart';
 import ProactivePulseEngine from '../ProactivePulseEngine';
 import { Icon } from '../ui/Icon';
 import { Card } from '../ui/Card';
 
 const MasterDashboard: React.FC = () => {
+  const navigate = useNavigate();
+  const { genesisScoreData, fetchGenesisScoreData } = useMasterDashboardStore();
+
+  useEffect(() => {
+    fetchGenesisScoreData();
+  }, [fetchGenesisScoreData]);
+
+  if (!genesisScoreData) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-white">Loading Master Dashboard...</div>
+      </div>
+    );
+  }
+
   const basePillars = genesisScoreData.scoring_layers[0];
   const nuanceOverlays = genesisScoreData.nuance_overlays[0];
 
@@ -27,11 +42,24 @@ const MasterDashboard: React.FC = () => {
       { title: 'CMO HUD', description: 'Market traction, GTM strategy, and customer metrics.', link: '/cmo', icon: 'cmo' as const, color: 'amber' },
   ];
 
+  const handleDropdownChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const path = event.target.value;
+    if (path) {
+      navigate(path);
+    }
+  };
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-white">Galactic Command Center</h1>
-        <p className="mt-1 text-gray-400">High-level overview of your venture's operational status and Genesis Score.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Galactic Command Center</h1>
+          <p className="mt-1 text-gray-400">High-level overview of your venture's operational status and Genesis Score.</p>
+        </div>
+        <select onChange={handleDropdownChange} className="bg-gray-800 text-white p-2 rounded">
+          <option value="">Select a screen</option>
+          <option value="/green-screen">Green Screen</option>
+        </select>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
