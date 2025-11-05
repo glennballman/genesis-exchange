@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { users, updateUser, addAchievementToUser } from '../../../data/genesisData';
 import { User, ProfessionalAchievement } from '../../../types';
 import { Button } from '../../ui/Button';
-import EditIndividualProfileModal from '../../modals/EditIndividualProfileModal';
+import IndividualIntakeWizard from '../../wizard/IndividualIntakeWizard';
 import AddAchievementModal from '../../modals/AddAchievementModal';
 
 const IndividualPrincipalDetail: React.FC = () => {
@@ -49,7 +49,7 @@ const IndividualPrincipalDetail: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">{individual.name}</h1>
         <div className="flex gap-4">
-          <Button onClick={handleEditProfile} variant="outline">Edit Profile</Button>
+          <Button onClick={handleEditProfile} variant="outline">Edit</Button>
           <Button onClick={handleAddAchievement}>Add Professional Achievement</Button>
         </div>
       </div>
@@ -78,10 +78,9 @@ const IndividualPrincipalDetail: React.FC = () => {
       </div>
 
       {isEditModalOpen && (
-        <EditIndividualProfileModal
-          individual={individual}
+        <IndividualIntakeWizard
+          user={individual}
           onClose={handleCloseEditModal}
-          onSave={handleSaveProfile}
         />
       )}
 

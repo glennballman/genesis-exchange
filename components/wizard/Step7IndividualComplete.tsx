@@ -1,19 +1,28 @@
 
 import React from 'react';
 import { Icon } from '../ui/Icon';
-import { Link } from 'react-router-dom';
+import { Button } from '../ui/Button';
 
-const Step7IndividualComplete: React.FC = () => {
+interface Step7IndividualCompleteProps {
+    onClose: () => void;
+    isEditing: boolean;
+}
+
+const Step7IndividualComplete: React.FC<Step7IndividualCompleteProps> = ({ onClose, isEditing }) => {
     return (
-        <div className="text-center">
+        <div className="text-center p-8">
             <Icon name="check-circle" className="w-16 h-16 text-green-400 mx-auto mb-4" />
-            <h2 className="text-3xl font-bold text-white mb-2">Profile Created!</h2>
+            <h2 className="text-3xl font-bold text-white mb-2">
+                {isEditing ? 'Profile Updated!' : 'Profile Created!'}
+            </h2>
             <p className="text-gray-300 mb-6 max-w-lg mx-auto">
-                Thank you for providing your information. Your profile has been successfully created.
+                {isEditing
+                    ? 'The profile has been successfully updated with your changes.'
+                    : 'Thank you for providing your information. The profile has been successfully created.'}
             </p>
-            <Link to="/admin/principals" className="text-cyan-400 hover:text-cyan-300 font-semibold">
-                Return to Manage Principals
-            </Link>
+            <Button onClick={onClose}>
+                Close
+            </Button>
         </div>
     );
 };
