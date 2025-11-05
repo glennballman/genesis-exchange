@@ -1,71 +1,109 @@
-import { ScoreComponent } from '../types';
-import { scoreCalculationData } from '../data/genesisData';
 
-interface ScoreDataStore {
-    getScoreComponents: () => ScoreComponent[];
-    addVerificationBonus: (documentName: string, points: number) => void;
-    addTeamMemberVerificationBonus: (memberName: string, points: number) => void;
-    addIpAnalysisBonus: (documentName: string, analysisScore: number) => void;
+import { ScoreComponent } from '../types';
+
+type Listener = () => void;
+
+interface ScoreDataStoreState {
+    components: ScoreComponent[];
+    loading: boolean;
+    error: string | null;
 }
 
+interface ScoreDataStore {
+    getState: () => ScoreDataStoreState;
+    getScoreComponents: () => ScoreComponent[];
+    addVerificationBonus: (documentName: string, points: number) => Promise<void>;
+    addTeamMemberVerificationBonus: (memberName: string, points: number) => Promise<void>;
+    addIpAnalysisBonus: (documentName: string, analysisScore: number) => Promise<void>;
+    reloadScoreComponents: () => Promise<void>;
+    subscribe: (listener: Listener) => () => void;
+}
+
+const API_URL = '/api/score-components'; // Placeholder for the score components API endpoint
+
 const createScoreDataStore = (): ScoreDataStore => {
-    // Initialize with the static data
-    const components: ScoreComponent[] = [...scoreCalculationData];
+    let state: ScoreDataStoreState = {
+        components: [],
+        loading: true,
+        error: null,
+    };
+    let listeners: Listener[] = [];
+
+    const notify = () => {
+        listeners.forEach(listener => listener());
+    };
+
+    const subscribe = (listener: Listener) => {
+        listeners.push(listener);
+        return () => {
+            listeners = listeners.filter(l => l !== listener);
+        };
+    };
+
+    const reloadScoreComponents = async () => {
+        state.loading = true;
+        state.error = null;
+        notify();
+
+        try {
+            const response = await fetch(API_URL);
+            if (!response.ok) throw new Error('Failed to fetch score components.');
+            const components: ScoreComponent[] = await response.json();
+            state.components = components;
+        } catch (e: any) {
+            state.error = e.message;
+        } finally {
+            state.loading = false;
+            notify();
+        }
+    };
+    
+    // Initial Load
+    reloadScoreComponents();
 
     return {
-        getScoreComponents: () => {
-            return [...components];
-        },
-        addVerificationBonus: (documentName, points) => {
-            const bonusItemIdentifier = `Verified Document: ${documentName}`;
-            // Prevent adding duplicate bonuses
-            if (components.some(c => c.item === bonusItemIdentifier)) {
-                return;
+        subscribe,
+        reloadScoreComponents,
+        getState: () => state,
+        getScoreComponents: () => [...state.components],
+        addVerificationBonus: async (documentName, points) => {
+            try {
+                const response = await fetch(`${API_URL}/verification-bonus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ documentName, points }),
+                });
+                if (!response.ok) throw new Error('Failed to add verification bonus.');
+                await reloadScoreComponents(); // Refresh the score components
+            } catch (e) {
+                console.error("Failed to add verification bonus:", e);
             }
-
-            const bonusComponent: ScoreComponent = {
-                category: 'IP',
-                item: bonusItemIdentifier,
-                points: points,
-                max_points: points,
-                details: 'Document authenticity verified against a public database.',
-            };
-            components.push(bonusComponent);
         },
-        addTeamMemberVerificationBonus: (memberName, points) => {
-            const bonusItemIdentifier = `Verified Profile: ${memberName}`;
-            // Prevent adding duplicate bonuses
-            if (components.some(c => c.item === bonusItemIdentifier)) {
-                return;
+        addTeamMemberVerificationBonus: async (memberName, points) => {
+            try {
+                const response = await fetch(`${API_URL}/team-verification-bonus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ memberName, points }),
+                });
+                if (!response.ok) throw new Error('Failed to add team member verification bonus.');
+                await reloadScoreComponents(); // Refresh the score components
+            } catch (e) {
+                console.error("Failed to add team member verification bonus:", e);
             }
-
-            const bonusComponent: ScoreComponent = {
-                category: 'Team',
-                item: bonusItemIdentifier,
-                points: points,
-                max_points: points,
-                details: 'Team member profile verified via a public professional network.',
-            };
-            components.push(bonusComponent);
         },
-        addIpAnalysisBonus: (documentName, analysisScore) => {
-            const bonusItemIdentifier = `IP Analysis: ${documentName}`;
-            if (components.some(c => c.item === bonusItemIdentifier)) {
-                // Update existing score if re-analyzed
-                const index = components.findIndex(c => c.item === bonusItemIdentifier);
-                components[index].points = analysisScore;
-                components[index].details = `AI-powered strength analysis score (${analysisScore}/1000).`;
-                return;
+        addIpAnalysisBonus: async (documentName, analysisScore) => {
+            try {
+                const response = await fetch(`${API_URL}/ip-analysis-bonus`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ documentName, analysisScore }),
+                });
+                if (!response.ok) throw new Error('Failed to add IP analysis bonus.');
+                await reloadScoreComponents(); // Refresh the score components
+            } catch (e) {
+                console.error("Failed to add IP analysis bonus:", e);
             }
-            
-            const bonusComponent: ScoreComponent = {
-                category: 'IP',
-                item: bonusItemIdentifier,
-                points: analysisScore,
-                max_points: 1000,
-                details: `AI-powered strength analysis score (${analysisScore}/1000).`,
-            };
-            components.push(bonusComponent);
         }
     };
 };
