@@ -70,7 +70,7 @@ const pepperAchievements: ProfessionalAchievement[] = [
 ];
 
 // --- User Data ---
-const usersData: Omit<User, 'igs'>[] = [
+let usersData: Omit<User, 'igs'>[] = [
     { 
         id: 'user-tony', 
         name: 'Tony Stark', 
@@ -131,10 +131,38 @@ const usersData: Omit<User, 'igs'>[] = [
     },
 ];
 
-export const users: User[] = usersData.map(user => ({
+export let users: User[] = usersData.map(user => ({
     ...user,
     igs: igsService.calculateIgs(user as User),
 }));
+
+export const updateUser = (updatedUser: User) => {
+    const index = users.findIndex(u => u.id === updatedUser.id);
+    if (index !== -1) {
+        users[index] = updatedUser;
+        // Also update usersData if needed, for simplicity we're only updating users here
+        const dataIndex = usersData.findIndex(u => u.id === updatedUser.id);
+        if(dataIndex !== -1) {
+            const { igs, ...rest } = updatedUser;
+            usersData[dataIndex] = rest;
+        }
+    }
+};
+
+export const addAchievementToUser = (userId: string, achievement: Omit<ProfessionalAchievement, 'id'>) => {
+    const user = users.find(u => u.id === userId);
+    if(user) {
+        const newAchievement: ProfessionalAchievement = {
+            ...achievement,
+            id: `ach-${userId}-${Date.now()}`
+        };
+        user.achievements.push(newAchievement);
+        const dataIndex = usersData.findIndex(u => u.id === userId);
+        if(dataIndex !== -1) {
+            usersData[dataIndex].achievements.push(newAchievement);
+        }
+    }
+};
 
 
 export const currentUser = users[0]; // Assume Tony Stark is the current user
