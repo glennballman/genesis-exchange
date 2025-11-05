@@ -1,14 +1,15 @@
+
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { users, updateUser, addAchievementToUser } from '../../../data/genesisData';
+import { users, addAchievementToUser } from '../../../data/genesisData';
 import { User, ProfessionalAchievement } from '../../../types';
 import { Button } from '../../ui/Button';
-import IndividualIntakeWizard from '../../wizard/IndividualIntakeWizard';
+import EditMemberModal from '../../team/EditMemberModal';
 import AddAchievementModal from '../../modals/AddAchievementModal';
 
 const IndividualPrincipalDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [individual, setIndividual] = useState<User | undefined>(users.find(u => u.id === id));
+  const [individual, setIndividual] = useState<User | undefined>(() => users.find(u => u.id === id));
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddAchievementModalOpen, setIsAddAchievementModalOpen] = useState(false);
 
@@ -22,11 +23,10 @@ const IndividualPrincipalDetail: React.FC = () => {
 
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false);
-  };
-
-  const handleSaveProfile = (updatedIndividual: User) => {
-    updateUser(updatedIndividual);
-    setIndividual(updatedIndividual);
+    // The modal updates the data source directly, so we re-fetch from the source
+    // to ensure the UI reflects the latest changes.
+    const refreshedIndividual = users.find(u => u.id === id);
+    setIndividual(refreshedIndividual);
   };
 
   const handleAddAchievement = () => {
@@ -40,7 +40,7 @@ const IndividualPrincipalDetail: React.FC = () => {
   const handleSaveAchievement = (newAchievement: Omit<ProfessionalAchievement, 'id'>) => {
     if(individual) {
         addAchievementToUser(individual.id, newAchievement);
-        setIndividual(users.find(u => u.id === id)); // re-fetch user to get updated achievements
+        setIndividual(users.find(u => u.id === id));
     }
   };
 
@@ -49,7 +49,7 @@ const IndividualPrincipalDetail: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">{individual.name}</h1>
         <div className="flex gap-4">
-          <Button onClick={handleEditProfile} variant="outline">Edit</Button>
+          <Button onClick={handleEditProfile} variant="outline">Edit Profile</Button>
           <Button onClick={handleAddAchievement}>Add Professional Achievement</Button>
         </div>
       </div>
@@ -78,8 +78,8 @@ const IndividualPrincipalDetail: React.FC = () => {
       </div>
 
       {isEditModalOpen && (
-        <IndividualIntakeWizard
-          user={individual}
+        <EditMemberModal
+          member={individual}
           onClose={handleCloseEditModal}
         />
       )}
