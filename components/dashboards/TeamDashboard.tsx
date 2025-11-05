@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { teamStore } from '../../services/teamStore';
 import { User, MemberRole, TeamChemistry } from '../../types';
@@ -13,17 +14,16 @@ const TeamDashboard: React.FC = () => {
     const [selectedMember, setSelectedMember] = useState<User | null>(null);
     const [editingMember, setEditingMember] = useState<User | 'new' | null>(null);
 
-    const refreshTeam = () => {
-        setTeam(teamStore.getTeam());
-        setChemistry(teamStore.getTeamChemistry());
-    };
-
     useEffect(() => {
-        refreshTeam();
-        const interval = setInterval(refreshTeam, 2000); // Periodically refresh for updates
-        return () => {
-            clearInterval(interval);
+        const handleTeamUpdate = () => {
+            setTeam(teamStore.getTeam());
+            setChemistry(teamStore.getTeamChemistry());
         };
+
+        const unsubscribe = teamStore.subscribe(handleTeamUpdate);
+        handleTeamUpdate(); // Initial fetch
+
+        return () => unsubscribe();
     }, []);
 
     const handleSelectMember = (member: User) => {
@@ -36,7 +36,6 @@ const TeamDashboard: React.FC = () => {
 
     const handleCloseModal = () => {
         setEditingMember(null);
-        refreshTeam();
     };
 
     const totalIgs = team.reduce((sum, member) => sum + (member.igs?.total || 0), 0);

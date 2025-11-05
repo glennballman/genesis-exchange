@@ -1,7 +1,10 @@
-import { User, TeamChemistry, ProfessionalAchievement } from '../types';
+
+import { User, TeamChemistry } from '../types';
 import { users } from '../data/genesisData';
 import { scoreDataStore } from './scoreDataStore';
 import { igsService } from './igsService';
+
+type Listener = () => void;
 
 interface TeamStore {
     addUser: (user: User) => void;
@@ -10,32 +13,47 @@ interface TeamStore {
     getTeam: () => User[];
     getTeamChemistry: () => TeamChemistry;
     verifyUser: (userId: string, url: string) => void;
+    subscribe: (listener: Listener) => () => void;
 }
 
 const createTeamStore = (): TeamStore => {
-    const team: User[] = [...users];
+    let team: User[] = [...users.map(u => ({ ...u, igs: igsService.calculateIgs(u.achievements) }))];
+    let listeners: Listener[] = [];
+
+    const notify = () => {
+        listeners.forEach(listener => listener());
+    };
+
+    const subscribe = (listener: Listener) => {
+        listeners.push(listener);
+        // Return an unsubscribe function
+        return () => {
+            listeners = listeners.filter(l => l !== listener);
+        };
+    };
 
     return {
         addUser: (user) => {
             if (!team.some(member => member.id === user.id)) {
-                // Recalculate IGS when adding
                 const userWithIgs = { ...user, igs: igsService.calculateIgs(user.achievements) };
                 team.push(userWithIgs);
+                notify();
             }
         },
         updateUser: (userId, updates) => {
             const index = team.findIndex(member => member.id === userId);
             if (index > -1) {
                 const updatedUser = { ...team[index], ...updates };
-                // Always recalculate IGS on update
                 updatedUser.igs = igsService.calculateIgs(updatedUser.achievements);
                 team[index] = updatedUser;
+                notify();
             }
         },
         removeUser: (userId) => {
             const index = team.findIndex(member => member.id === userId);
             if (index > -1) {
                 team.splice(index, 1);
+                notify();
             }
         },
         getTeam: () => {
@@ -64,8 +82,10 @@ const createTeamStore = (): TeamStore => {
 
                 const verificationBonus = 2500;
                 scoreDataStore.addTeamMemberVerificationBonus(user.name, verificationBonus);
+                notify();
             }
-        }
+        },
+        subscribe,
     };
 };
 

@@ -1,7 +1,8 @@
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, ReactNode } from 'react';
 import { Principal } from '../types';
-import { principals } from '../data/principals';
+import { companyPrincipal, vcFundPrincipals } from '../data/principals';
+import { teamStore } from './teamStore';
 
 interface PrincipalContextType {
   currentPrincipal: Principal | null;
@@ -12,14 +13,29 @@ interface PrincipalContextType {
 const PrincipalContext = createContext<PrincipalContextType | undefined>(undefined);
 
 export const PrincipalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentPrincipal, setCurrentPrincipal] = useState<Principal | null>(principals[0] || null);
-  const availablePrincipals = principals;
+  const [currentPrincipal, setCurrentPrincipal] = useState<Principal | null>(companyPrincipal);
+  const [users, setUsers] = useState(teamStore.getTeam());
 
-  const value = {
+  useEffect(() => {
+    const handleTeamUpdate = () => {
+      setUsers(teamStore.getTeam());
+    };
+    
+    const unsubscribe = teamStore.subscribe(handleTeamUpdate);
+    
+    return () => unsubscribe();
+  }, []);
+
+  const availablePrincipals = useMemo(() => {
+    const individualPrincipals = users.map(u => ({ ...u, type: 'INDIVIDUAL' } as Principal));
+    return [companyPrincipal, ...vcFundPrincipals, ...individualPrincipals];
+  }, [users]);
+
+  const value = useMemo(() => ({
     currentPrincipal,
     setCurrentPrincipal,
     availablePrincipals,
-  };
+  }), [currentPrincipal, availablePrincipals]);
 
   return (
     <PrincipalContext.Provider value={value}>

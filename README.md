@@ -77,7 +77,8 @@ npm run preview
 
 ## Build History
 
-*   **Stable Build November 5 2025 235AM:** All AI-powered features are temporarily handled by internal mock data in `services/geminiService.ts`. This allows for stable front-end development without requiring live API keys.
+*   **Stable Build November 5 2024 1034AM:** Fixed a significant layout bug in the reusable `Card` component. The flexbox alignment was changed from `justify-between` to `justify-start`, resolving a vertical spacing issue.
+*   **Stable Build November 5 2024 235AM:** All AI-powered features are temporarily handled by internal mock data in `services/geminiService.ts`. This allows for stable front-end development without requiring live API keys.
 
 ## 📁 Project Structure
 

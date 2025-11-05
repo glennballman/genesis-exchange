@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { discoveryService } from '../../services/discoveryService';
 import { AlignmentMatch } from '../../types';
 import { Card } from '../ui/Card';
 import { Icon } from '../ui/Icon';
+import IndividualsList from './principals/IndividualsList';
 
 const AlignmentGauge: React.FC<{ score: number; label: string; colorClass: string }> = ({ score, label, colorClass }) => {
     const percentage = score / 100;
@@ -73,18 +75,22 @@ const MatchCard: React.FC<{ match: AlignmentMatch }> = ({ match }) => {
 const DiscoveryDashboard: React.FC = () => {
     const [matches, setMatches] = useState<AlignmentMatch[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [filter, setFilter] = useState<'Capital' | 'Advisors'>('Capital');
+    const [filter, setFilter] = useState<'Capital' | 'Advisors' | 'Individuals'>('Capital');
 
     useEffect(() => {
-        const fetchMatches = async () => {
-            setIsLoading(true);
-            const company = discoveryService.getCurrentCompanyPrincipal();
-            const results = await discoveryService.findMatches(company, 'VC_FUND');
-            setMatches(results);
+        if (filter === 'Capital' || filter === 'Advisors') {
+            const fetchMatches = async () => {
+                setIsLoading(true);
+                const company = discoveryService.getCurrentCompanyPrincipal();
+                const results = await discoveryService.findMatches(company, 'VC_FUND');
+                setMatches(results);
+                setIsLoading(false);
+            };
+            fetchMatches();
+        } else {
             setIsLoading(false);
-        };
-        fetchMatches();
-    }, []);
+        }
+    }, [filter]);
 
     const sortedMatches = [...matches].sort((a, b) => {
         if (filter === 'Capital') {
@@ -105,6 +111,7 @@ const DiscoveryDashboard: React.FC = () => {
                 <div className="flex items-center gap-2">
                     <button onClick={() => setFilter('Capital')} className={`px-3 py-1.5 text-sm font-semibold rounded-md ${filter === 'Capital' ? 'text-white bg-cyan-600' : 'text-gray-400 bg-slate-700 hover:bg-slate-600'}`}>Capital</button>
                     <button onClick={() => setFilter('Advisors')} className={`px-3 py-1.5 text-sm font-semibold rounded-md ${filter === 'Advisors' ? 'text-white bg-cyan-600' : 'text-gray-400 bg-slate-700 hover:bg-slate-600'}`}>Advisors</button>
+                    <button onClick={() => setFilter('Individuals')} className={`px-3 py-1.5 text-sm font-semibold rounded-md ${filter === 'Individuals' ? 'text-white bg-cyan-600' : 'text-gray-400 bg-slate-700 hover:bg-slate-600'}`}>Individuals</button>
                 </div>
             </div>
 
@@ -113,11 +120,17 @@ const DiscoveryDashboard: React.FC = () => {
                     <div className="animate-spin h-12 w-12 border-4 border-purple-400 border-t-transparent rounded-full"></div>
                 </div>
             ) : (
-                <div className="space-y-4">
-                    {sortedMatches.map(match => (
-                        <MatchCard key={match.target.id} match={match} />
-                    ))}
-                </div>
+                <>
+                    {filter === 'Individuals' ? (
+                        <IndividualsList />
+                    ) : (
+                        <div className="space-y-4">
+                            {sortedMatches.map(match => (
+                                <MatchCard key={match.target.id} match={match} />
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );

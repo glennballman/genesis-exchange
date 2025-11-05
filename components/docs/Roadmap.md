@@ -2,7 +2,13 @@
 
 This document outlines the future of the Genesis Exchange.
 
-## November 5 504AM
+## November 5 1034AM
+
+This build is stable and includes the following features and fixes:
+
+*   **Layout Correction:** Fixed a significant layout bug in the reusable `Card` component. The flexbox alignment was changed from `justify-between` to `justify-start`, resolving a vertical spacing issue that affected multiple pages, most notably the Principal Detail page's "Personal Goals" section.
+
+## November 5 820AM
 
 This build is stable and includes the following features and fixes:
 
