@@ -1,135 +1,196 @@
+
 import { VaultDocument, VaultId, AIParsedInsights, IpAnalysisReport } from '../types';
 import { analyzeDocument } from './geminiService';
 import { scoreDataStore } from './scoreDataStore';
 import { teamStore } from './teamStore';
 
-interface VaultStore {
-    getDocuments: (vaultId: VaultId) => VaultDocument[];
-    getAllDocuments: () => VaultDocument[];
-    addDocument: (vaultId: VaultId, file: File) => Promise<VaultDocument>;
-    updateDocumentInsights: (docId: string, insights: AIParsedInsights) => void;
-    verifyDocument: (documentId: string, url: string) => void;
-    verifyTeamDocument: (documentId: string, userId: string, url: string) => void;
-    startIpAnalysis: (documentId: string) => void;
-    completeIpAnalysis: (documentId: string, report: IpAnalysisReport) => void;
-    failIpAnalysis: (documentId: string, error: string) => void;
+type Listener = () => void;
+
+interface VaultStoreState {
+    documents: VaultDocument[];
+    loading: boolean;
+    error: string | null;
 }
 
-const initialDocuments: VaultDocument[] = [
-    { id: 'doc-1', name: 'Q3-2025-P&L-Statement.xlsx', vaultId: 'financials', uploadedAt: new Date().toISOString(), size: '24KB', insights: null },
-    { id: 'doc-2', name: 'Provisional-Patent-App-12345.pdf', vaultId: 'ip', uploadedAt: new Date().toISOString(), size: '1.2MB', insights: null },
-    { id: 'doc-3', name: 'Employee-Handbook-v2.pdf', vaultId: 'team', uploadedAt: new Date().toISOString(), size: '450KB', insights: null },
-    { id: 'doc-4', name: 'Series-A-Term-Sheet.docx', vaultId: 'legal', uploadedAt: new Date().toISOString(), size: '88KB', insights: null },
-];
+interface VaultStore {
+    getState: () => VaultStoreState;
+    getDocumentsByVault: (vaultId: VaultId) => VaultDocument[];
+    addDocument: (vaultId: VaultId, file: File) => Promise<void>;
+    updateDocumentInsights: (docId: string, insights: AIParsedInsights) => Promise<void>;
+    verifyDocument: (documentId: string, url: string) => Promise<void>;
+    verifyTeamDocument: (documentId: string, userId: string, url: string) => Promise<void>;
+    startIpAnalysis: (documentId: string) => Promise<void>;
+    completeIpAnalysis: (documentId: string, report: IpAnalysisReport) => Promise<void>;
+    failIpAnalysis: (documentId: string, error: string) => Promise<void>;
+    subscribe: (listener: Listener) => () => void;
+    reloadDocuments: () => Promise<void>;
+}
+
+// Placeholder for backend API URL
+const API_URL = '/api/vault';
 
 const createVaultStore = (): VaultStore => {
-    const documents: VaultDocument[] = [...initialDocuments];
+    let state: VaultStoreState = {
+        documents: [],
+        loading: true,
+        error: null,
+    };
+    let listeners: Listener[] = [];
 
-    // Simulate initial analysis for mock data
-    documents.forEach(async (doc) => {
-        if (!doc.insights) {
-            const insights = await analyzeDocument(doc.name);
-            const index = documents.findIndex(d => d.id === doc.id);
-            if (index > -1) {
-                documents[index].insights = insights;
-            }
+    const notify = () => {
+        listeners.forEach(listener => listener());
+    };
+
+    const subscribe = (listener: Listener) => {
+        listeners.push(listener);
+        return () => {
+            listeners = listeners.filter(l => l !== listener);
+        };
+    };
+
+    const reloadDocuments = async () => {
+        state.loading = true;
+        state.error = null;
+        notify();
+        try {
+            const response = await fetch(`${API_URL}/documents`);
+            if (!response.ok) throw new Error('Failed to fetch documents.');
+            const documents: VaultDocument[] = await response.json();
+            state.documents = documents;
+        } catch (e: any) {
+            state.error = e.message;
+        } finally {
+            state.loading = false;
+            notify();
         }
-    });
+    };
+    
+    // Initial load
+    reloadDocuments();
 
     return {
-        getDocuments: (vaultId: VaultId) => {
-            return documents.filter(doc => doc.vaultId === vaultId);
+        subscribe,
+        reloadDocuments,
+        getState: () => state,
+        getDocumentsByVault: (vaultId: VaultId) => {
+            return state.documents.filter(doc => doc.vaultId === vaultId);
         },
-        getAllDocuments: () => {
-            return [...documents];
-        },
-        addDocument: async (vaultId: VaultId, file: File) => {
-            const newDoc: VaultDocument = {
-                id: `doc-${Date.now()}`,
+        addDocument: async (vaultId, file) => {
+            // This is a simplified example. A real implementation would use FormData for file upload.
+            const tempId = `temp-${Date.now()}`;
+            const newDoc: Omit<VaultDocument, 'id'> = {
                 name: file.name,
                 vaultId,
                 uploadedAt: new Date().toISOString(),
                 size: `${(file.size / 1024).toFixed(1)}KB`,
-                insights: null, // Initially null, will be updated
+                insights: null,
             };
-            documents.unshift(newDoc);
             
-            // Asynchronously get AI insights and update the document, but don't wait for it
-            analyzeDocument(file.name).then(insights => {
-                const index = documents.findIndex(d => d.id === newDoc.id);
+            // Optimistic update
+            state.documents.unshift({ ...newDoc, id: tempId });
+            notify();
+
+            try {
+                // Replace with actual API call for file upload
+                const response = await fetch(`${API_URL}/documents`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vaultId, fileName: file.name, size: file.size }),
+                });
+
+                if (!response.ok) throw new Error('Failed to add document.');
+                
+                // Refresh data from server to get the real ID and details
+                await reloadDocuments();
+
+                // Trigger async analysis on the backend (the backend should handle this post-upload)
+
+            } catch (e) {
+                console.error(e);
+                // Rollback optimistic update on failure
+                state.documents = state.documents.filter(d => d.id !== tempId);
+                notify();
+            }
+        },
+        updateDocumentInsights: async (docId, insights) => {
+            try {
+                await fetch(`${API_URL}/documents/${docId}/insights`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(insights),
+                });
+                const index = state.documents.findIndex(d => d.id === docId);
+                if (index !== -1) {
+                    state.documents[index].insights = insights;
+                    notify();
+                }
+            } catch (e) {
+                console.error("Failed to update insights:", e);
+            }
+        },
+        verifyDocument: async (documentId, url) => {
+            try {
+                const response = await fetch(`${API_URL}/documents/${documentId}/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url }),
+                });
+                if (!response.ok) throw new Error('Verification failed');
+                const { verification, bonus } = await response.json();
+
+                const index = state.documents.findIndex(d => d.id === documentId);
+                if (index !== -1) {
+                    state.documents[index].verification = verification;
+                    scoreDataStore.addVerificationBonus(state.documents[index].name, bonus);
+                    notify();
+                }
+            } catch (e) {
+                console.error("Verification failed:", e);
+            }
+        },
+        // This method now has a dependency on the main teamStore for the user verification part
+        verifyTeamDocument: async (documentId, userId, url) => {
+             try {
+                // The backend should handle both document and user verification in one transaction
+                const response = await fetch(`${API_URL}/documents/${documentId}/verify-team`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, url }),
+                });
+                 if (!response.ok) throw new Error('Team verification failed');
+                 await reloadDocuments(); // Refresh vault docs
+                 await teamStore.reloadTeam(); // Refresh team to reflect verification
+            } catch (e) {
+                console.error("Team verification failed:", e);
+            }
+        },
+        startIpAnalysis: async (documentId) => {
+            // In a real app, this would trigger a backend process
+            try {
+                await fetch(`${API_URL}/documents/${documentId}/ip-analysis`, { method: 'POST' });
+                const index = state.documents.findIndex(d => d.id === documentId);
                 if (index > -1) {
-                    documents[index].insights = insights;
+                    state.documents[index].ipAnalysis = { status: 'in_progress' };
+                    notify();
                 }
-            });
-
-            return newDoc;
-        },
-        updateDocumentInsights: (docId, insights) => {
-            const index = documents.findIndex(d => d.id === docId);
-            if (index > -1) {
-                documents[index].insights = insights;
+            } catch(e) {
+                console.error("Failed to start IP analysis:", e);
             }
         },
-        verifyDocument: (documentId, url) => {
-            const index = documents.findIndex(d => d.id === documentId);
+        // These would likely be called via a webhook or a polling mechanism from the backend
+        completeIpAnalysis: async (documentId, report) => {
+            const index = state.documents.findIndex(d => d.id === documentId);
             if (index > -1) {
-                const doc = documents[index];
-                let source = 'Public Record';
-                if (url.includes('patents.google.com')) {
-                    source = 'Google Patents';
-                } else if (url.includes('uspto.gov')) {
-                    source = 'USPTO';
-                }
-
-                doc.verification = {
-                    source,
-                    url,
-                    verifiedAt: new Date().toISOString(),
-                };
-                documents[index] = doc;
-
-                // Add bonus points
-                const verificationBonus = 5000;
-                scoreDataStore.addVerificationBonus(doc.name, verificationBonus);
+                state.documents[index].ipAnalysis = { status: 'complete', report };
+                scoreDataStore.addIpAnalysisBonus(state.documents[index].name, report.score);
+                notify();
             }
         },
-        verifyTeamDocument: (documentId, userId, url) => {
-            const index = documents.findIndex(d => d.id === documentId);
+        failIpAnalysis: async (documentId, error) => {
+             const index = state.documents.findIndex(d => d.id === documentId);
             if (index > -1) {
-                const doc = documents[index];
-                let source = 'Online Profile';
-                if (url.includes('linkedin.com')) {
-                    source = 'LinkedIn';
-                }
-
-                doc.verification = {
-                    source,
-                    url,
-                    verifiedAt: new Date().toISOString(),
-                };
-                documents[index] = doc;
-
-                // Now, verify the user in the team store, which also handles the score bonus
-                teamStore.verifyUser(userId, url);
-            }
-        },
-        startIpAnalysis: (documentId) => {
-            const index = documents.findIndex(d => d.id === documentId);
-            if (index > -1) {
-                documents[index].ipAnalysis = { status: 'in_progress' };
-            }
-        },
-        completeIpAnalysis: (documentId, report) => {
-            const index = documents.findIndex(d => d.id === documentId);
-            if (index > -1) {
-                documents[index].ipAnalysis = { status: 'complete', report };
-                scoreDataStore.addIpAnalysisBonus(documents[index].name, report.score);
-            }
-        },
-        failIpAnalysis: (documentId, error) => {
-            const index = documents.findIndex(d => d.id === documentId);
-            if (index > -1) {
-                documents[index].ipAnalysis = { status: 'error', error };
+                state.documents[index].ipAnalysis = { status: 'error', error };
+                notify();
             }
         },
     };

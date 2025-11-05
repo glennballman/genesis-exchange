@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { Principal, IndividualPrincipal } from '../../../types';
+import { Principal, IndividualPrincipal, IndividualGumpScore, ScoreSnapshot, CompletedModule, Vault, VaultDocument } from '../../../types';
 import { usePrincipal } from '../../../services/PrincipalProvider';
 import { Card } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
@@ -10,6 +10,10 @@ import { LiveAlignmentReportCard } from '../../diligence/LiveAlignmentReportCard
 import { discoveryService } from '../../../services/discoveryService';
 import IndividualIntakeWizard from '../../wizard/IndividualIntakeWizard';
 import EditMemberModal from '../../team/EditMemberModal';
+import ScoreDashboard from '../ScoreDashboard';
+import { vaultStore } from '../../../services/vaultStore';
+import { scoreHistoryService } from '../../../services/scoreHistoryService';
+import { completedModulesService } from '../../../services/completedModulesService';
 
 const DetailItem: React.FC<{ icon: string, label: string, children: React.ReactNode }> = ({ icon, label, children }) => (
     <div className="flex gap-4 py-4 border-b border-slate-800 last:border-b-0">
@@ -33,6 +37,28 @@ const IndividualPrincipalDetail: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const location = useLocation();
     const isAdminMode = location.pathname.startsWith('/admin');
+
+    const [vaultState, setVaultState] = useState(vaultStore.getState());
+    const [scoreHistoryState, setScoreHistoryState] = useState(scoreHistoryService.getState());
+    const [completedModulesState, setCompletedModulesState] = useState(completedModulesService.getState());
+
+    useEffect(() => {
+        const unsubscribeVault = vaultStore.subscribe(() => {
+            setVaultState(vaultStore.getState());
+        });
+        const unsubscribeScoreHistory = scoreHistoryService.subscribe(() => {
+            setScoreHistoryState(scoreHistoryService.getState());
+        });
+        const unsubscribeCompletedModules = completedModulesService.subscribe(() => {
+            setCompletedModulesState(completedModulesService.getState());
+        });
+
+        return () => {
+            unsubscribeVault();
+            unsubscribeScoreHistory();
+            unsubscribeCompletedModules();
+        };
+    }, []);
 
     useEffect(() => {
         const foundPrincipal = availablePrincipals.find(p => p.id === id);
@@ -65,6 +91,35 @@ const IndividualPrincipalDetail: React.FC = () => {
     const company = discoveryService.getCurrentCompanyPrincipal();
     const backLink = isAdminMode ? '/admin/principals' : '/discovery';
     const backLinkText = isAdminMode ? 'Back to Principals' : 'Back to Discovery Dashboard';
+
+    // Mock IGS data for development - This can be removed once the backend is live
+    const mockIgs: IndividualGumpScore = {
+      total: 786,
+      provenExecution: {
+        total: 350,
+        exits: 100,
+        scaling: 150,
+        capitalGovernance: 100,
+      },
+      pillarsOfPotential: {
+        total: 436,
+        disciplineGrit: 150,
+        intellectualHorsepower: 186,
+        ambition: 100,
+      },
+    };
+
+    const igsData = individual.igs || mockIgs;
+
+    const mockVaults: Vault[] = [
+        { id: 'v1', name: 'Legal', icon: 'legal', color: 'red' },
+        { id: 'v2', name: 'Finance', icon: 'finance', color: 'green' },
+        { id: 'v3', name: 'HR', icon: 'hr', color: 'blue' },
+        { id: 'v4', name: 'Product', icon: 'product', color: 'yellow' },
+        { id: 'v5', name: 'Marketing', icon: 'marketing', color: 'purple' },
+        { id: 'v6', name: 'Sales', icon: 'sales', color: 'orange' },
+        { id: 'v7', name: 'Admin', icon: 'admin', color: 'gray' },
+      ];
 
     return (
         <>
@@ -169,6 +224,14 @@ const IndividualPrincipalDetail: React.FC = () => {
                         )}
                     </Card>
                 </div>
+
+                <ScoreDashboard 
+                  igs={igsData} 
+                  scoreHistory={scoreHistoryState.history} 
+                  completedModules={completedModulesState.modules} 
+                  vaults={mockVaults} 
+                  documents={vaultState.documents} 
+                />
             </div>
 
             {isWizardOpen && (

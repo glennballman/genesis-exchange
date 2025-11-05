@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { genesisScoreData } from '../../data/genesisData';
+import { useMasterDashboardStore } from '../../services/masterDashboardStore';
 import ScoreBreakdownChart from '../ScoreBreakdownChart';
 import ProactivePulseEngine from '../ProactivePulseEngine';
 import { Icon } from '../ui/Icon';
@@ -9,6 +9,20 @@ import { Card } from '../ui/Card';
 
 const MasterDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { genesisScoreData, fetchGenesisScoreData } = useMasterDashboardStore();
+
+  useEffect(() => {
+    fetchGenesisScoreData();
+  }, [fetchGenesisScoreData]);
+
+  if (!genesisScoreData) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-white">Loading Master Dashboard...</div>
+      </div>
+    );
+  }
+
   const basePillars = genesisScoreData.scoring_layers[0];
   const nuanceOverlays = genesisScoreData.nuance_overlays[0];
 

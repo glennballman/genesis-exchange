@@ -1,23 +1,36 @@
 
-import { User, TeamChemistry } from '../types';
-import { users } from '../data/genesisData';
+import { User, TeamChemistry, Goal } from '../types';
 import { scoreDataStore } from './scoreDataStore';
 import { igsService } from './igsService';
 
 type Listener = () => void;
 
+interface TeamStoreState {
+    team: User[];
+    loading: boolean;
+    error: string | null;
+}
+
 interface TeamStore {
-    addUser: (user: User) => void;
-    updateUser: (userId: string, updates: Partial<User>) => void;
-    removeUser: (userId: string) => void;
+    getState: () => TeamStoreState;
     getTeam: () => User[];
     getTeamChemistry: () => TeamChemistry;
-    verifyUser: (userId: string, url: string) => void;
+    addUser: (user: Omit<User, 'id' | 'igs'>) => Promise<void>;
+    updateUser: (userId: string, updates: Partial<User>) => Promise<void>;
+    removeUser: (userId: string) => Promise<void>;
+    verifyUser: (userId: string, url: string) => Promise<void>;
+    reloadTeam: () => Promise<void>;
     subscribe: (listener: Listener) => () => void;
 }
 
+const API_URL = '/api/team'; // Placeholder for the team API endpoint
+
 const createTeamStore = (): TeamStore => {
-    let team: User[] = [...users.map(u => ({ ...u, igs: igsService.calculateIgs(u.achievements) }))];
+    let state: TeamStoreState = {
+        team: [],
+        loading: true,
+        error: null,
+    };
     let listeners: Listener[] = [];
 
     const notify = () => {
@@ -26,66 +39,102 @@ const createTeamStore = (): TeamStore => {
 
     const subscribe = (listener: Listener) => {
         listeners.push(listener);
-        // Return an unsubscribe function
         return () => {
             listeners = listeners.filter(l => l !== listener);
         };
     };
 
+    const reloadTeam = async () => {
+        state.loading = true;
+        state.error = null;
+        notify();
+
+        try {
+            const response = await fetch(API_URL);
+            if (!response.ok) throw new Error('Failed to fetch team data.');
+            const users: User[] = await response.json();
+            // The backend should not return the IGS. The frontend calculates it.
+            state.team = users.map(u => ({ ...u, igs: igsService.calculateIgs(u) }));
+        } catch (e: any) {
+            state.error = e.message;
+        } finally {
+            state.loading = false;
+            notify();
+        }
+    };
+    
+    // Initial Load
+    reloadTeam();
+
     return {
-        addUser: (user) => {
-            if (!team.some(member => member.id === user.id)) {
-                const userWithIgs = { ...user, igs: igsService.calculateIgs(user.achievements) };
-                team.push(userWithIgs);
-                notify();
-            }
-        },
-        updateUser: (userId, updates) => {
-            const index = team.findIndex(member => member.id === userId);
-            if (index > -1) {
-                const updatedUser = { ...team[index], ...updates };
-                updatedUser.igs = igsService.calculateIgs(updatedUser.achievements);
-                team[index] = updatedUser;
-                notify();
-            }
-        },
-        removeUser: (userId) => {
-            const index = team.findIndex(member => member.id === userId);
-            if (index > -1) {
-                team.splice(index, 1);
-                notify();
-            }
-        },
-        getTeam: () => {
-            return [...team];
-        },
+        subscribe,
+        reloadTeam,
+        getState: () => state,
+        getTeam: () => [...state.team],
         getTeamChemistry: () => {
-            return igsService.calculateTeamChemistry(team);
+            return igsService.calculateTeamChemistry(state.team);
         },
-        verifyUser: (userId, url) => {
-            const index = team.findIndex(member => member.id === userId);
-            if (index > -1) {
-                const user = team[index];
-                let source = 'Online Profile';
-                if (url.includes('linkedin.com')) {
-                    source = 'LinkedIn';
-                } else if (url.includes('github.com')) {
-                    source = 'GitHub';
+        addUser: async (userData) => {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData),
+                });
+                if (!response.ok) throw new Error('Failed to add user.');
+                await reloadTeam(); // Refresh the team list
+            } catch (e) {
+                console.error("Failed to add user:", e);
+                // Optionally handle the error in the UI
+            }
+        },
+        updateUser: async (userId, updates) => {
+            try {
+                const response = await fetch(`${API_URL}/${userId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates),
+                });
+                if (!response.ok) throw new Error('Failed to update user.');
+                await reloadTeam(); // Refresh the team list
+            } catch (e) {
+                console.error("Failed to update user:", e);
+            }
+        },
+        removeUser: async (userId) => {
+            try {
+                const response = await fetch(`${API_URL}/${userId}`, {
+                    method: 'DELETE',
+                });
+                if (!response.ok) throw new Error('Failed to remove user.');
+                await reloadTeam(); // Refresh the team list
+            } catch (e) {
+                console.error("Failed to remove user:", e);
+            }
+        },
+        verifyUser: async (userId, url) => {
+            try {
+                const response = await fetch(`${API_URL}/${userId}/verify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url }),
+                });
+                if (!response.ok) throw new Error('Failed to verify user.');
+                const { bonus } = await response.json(); 
+                
+                // Reload team to get verification status
+                await reloadTeam();
+
+                // Add bonus points via scoreDataStore
+                const user = state.team.find(u => u.id === userId);
+                if (user) {
+                    scoreDataStore.addTeamMemberVerificationBonus(user.name, bonus);
                 }
 
-                user.verification = {
-                    source,
-                    url,
-                    verifiedAt: new Date().toISOString(),
-                };
-                team[index] = user;
-
-                const verificationBonus = 2500;
-                scoreDataStore.addTeamMemberVerificationBonus(user.name, verificationBonus);
-                notify();
+            } catch (e) {
+                console.error("Failed to verify user:", e);
             }
         },
-        subscribe,
     };
 };
 

@@ -30,6 +30,7 @@ import AdminWorkflows from './components/dashboards/AdminWorkflows';
 import { useAdminStore } from './services/adminStore';
 import IndividualPrincipalDetail from './components/dashboards/principals/IndividualPrincipalDetail';
 import { PrincipalProvider } from './services/PrincipalProvider';
+import TeamPage from './components/TeamPage';
 
 const App: React.FC = () => {
   const { isAdminMode } = useAdminStore();
@@ -57,6 +58,7 @@ const App: React.FC = () => {
                 <Route path="action-plan" element={<ActionPlanDashboard />} />
                 <Route path="profile" element={<UserProfileDashboard />} />
                 <Route path="team" element={<TeamDashboard />} />
+                <Route path="team-management" element={<TeamPage />} />
                 <Route path="vaults" element={<VaultsDashboard />} />
                 <Route path="vaults/:vaultId" element={<VaultDetailDashboard />} />
                 <Route path="cto" element={<CTODashboard />} />
