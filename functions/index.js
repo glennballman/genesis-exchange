@@ -1,6 +1,7 @@
 
 const express = require('express');
-const functions = require('firebase-functions');
+const { setGlobalOptions } = require('firebase-functions/v2');
+const { onRequest } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { VertexAI } = require('@google-cloud/vertexai');
 
@@ -9,6 +10,60 @@ const db = admin.firestore();
 const app = express();
 
 app.use(express.json());
+
+// Set global options for all functions in this file
+setGlobalOptions({ region: 'us-central1', timeoutSeconds: 540 });
+
+// --- Gemini API Endpoint ---
+
+app.post('/api/gemini-generate', async (req, res) => {
+    const { prompt } = req.body;
+    console.log('Received request for /api/gemini-generate');
+
+    if (!prompt) {
+        console.error('Prompt is required');
+        return res.status(400).send({ error: 'Prompt is required' });
+    }
+
+    try {
+        console.log('Initializing VertexAI');
+        const vertex_ai = new VertexAI({ project: 'genesis-exchangegit-0347-f7873', location: 'us-central1' });
+        const model = 'gemini-1.5-flash-001';
+
+        const generativeModel = vertex_ai.getGenerativeModel({
+            model: model,
+            generationConfig: {
+                'maxOutputTokens': 8192,
+                'temperature': 1,
+                'topP': 0.95,
+            },
+        });
+
+        const request = {
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        };
+
+        console.log('Sending request to Gemini API...');
+        const startTime = Date.now();
+        const result = await generativeModel.generateContent(request);
+        const endTime = Date.now();
+        console.log(`Gemini API call took ${endTime - startTime}ms`);
+
+        if (result && result.response && result.response.candidates && result.response.candidates.length > 0 && result.response.candidates[0].content && result.response.candidates[0].content.parts && result.response.candidates[0].content.parts.length > 0) {
+            const content = result.response.candidates[0].content.parts[0].text;
+            console.log('Successfully received response from Gemini API');
+            res.send({ generated_text: content });
+        } else {
+            console.error('Invalid or empty response from Gemini API:', JSON.stringify(result, null, 2));
+            res.status(500).send({ error: 'Received an invalid response from the AI model.' });
+        }
+
+    } catch (error) {
+        console.error('Error in /api/gemini-generate:', error);
+        res.status(500).send({ error: 'An error occurred while communicating with the Gemini API.', details: error.message });
+    }
+});
+
 
 // --- Mock Data (for other endpoints) ---
 const mockVaultDocuments = [
@@ -141,35 +196,6 @@ app.delete('/api/team/:id', async (req, res) => {
 
 // --- Other API Endpoints ---
 
-app.post('/api/gemini-generate', async (req, res) => {
-  const { prompt } = req.body;
-
-  if (!prompt) {
-    return res.status(400).send({ error: 'Prompt is required' });
-  }
-
-  const vertex_ai = new VertexAI({project: 'genesis-exchangegit-0347-f7873', location: 'us-central1'});
-  const model = 'gemini-1.5-flash-001';
-
-  const generativeModel = vertex_ai.getGenerativeModel({
-    model: model,
-    generationConfig: {
-      'maxOutputTokens': 8192,
-      'temperature': 1,
-      'topP': 0.95,
-    },
-  });
-
-  try {
-    const resp = await generativeModel.generateContent(prompt);
-    const content = resp.response.candidates[0].content.parts[0].text;
-    res.send({ generated_text: content });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: 'Failed to generate content from Gemini API' });
-  }
-});
-
 app.get('/api/genesis-score', (req, res) => {
     res.json(genesisScoreData);
 });
@@ -207,4 +233,4 @@ app.get('/api/completed-modules', (req, res) => {
 
 
 // Expose the Express app as a Firebase Function
-exports.api = functions.https.onRequest(app);
+exports.api = onRequest(app);

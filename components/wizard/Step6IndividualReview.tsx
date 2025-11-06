@@ -6,6 +6,7 @@ interface Step6IndividualReviewProps {
     prevStep: () => void;
     submit: () => void;
     data: WizardFormData;
+    submissionStatus: 'idle' | 'submitting' | 'success' | 'error';
 }
 
 const ReviewItem: React.FC<{ label: string; value: string | number | undefined | null }> = ({ label, value }) => (
@@ -30,7 +31,7 @@ const ReviewList: React.FC<{ label: string; items: { id: string; description: st
     </div>
 );
 
-const Step6IndividualReview: React.FC<Step6IndividualReviewProps> = ({ prevStep, submit, data }) => {
+const Step6IndividualReview: React.FC<Step6IndividualReviewProps> = ({ prevStep, submit, data, submissionStatus }) => {
     return (
         <div>
             <h2 className="text-2xl font-bold text-white mb-6">Review Your Information</h2>
@@ -51,8 +52,15 @@ const Step6IndividualReview: React.FC<Step6IndividualReviewProps> = ({ prevStep,
 
             <div className="flex justify-between pt-8">
                 <button type="button" onClick={prevStep} className="px-6 py-2 text-sm font-semibold text-gray-300 hover:text-white">Back</button>
-                <button type="button" onClick={submit} className="px-6 py-2 text-sm font-semibold text-white bg-cyan-600 rounded-md hover:bg-cyan-500">Submit & Finish</button>
+                <button type="button" onClick={submit} className="px-6 py-2 text-sm font-semibold text-white bg-cyan-600 rounded-md hover:bg-cyan-500" disabled={submissionStatus === 'submitting'}>
+                    {submissionStatus === 'submitting' ? 'Submitting...' : 'Submit & Finish'}
+                </button>
             </div>
+            {submissionStatus === 'error' && (
+                <div className="mt-4 text-red-500">
+                    There was an error submitting your information. Please try again.
+                </div>
+            )}
         </div>
     );
 };

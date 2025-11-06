@@ -31,6 +31,9 @@ import { useAdminStore } from './services/adminStore';
 import IndividualPrincipalDetail from './components/dashboards/principals/IndividualPrincipalDetail';
 import { PrincipalProvider } from './services/PrincipalProvider';
 import TeamPage from './components/TeamPage';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import LoginPage from './components/auth/LoginPage';
+import SignUpPage from './components/auth/SignUpPage';
 
 const App: React.FC = () => {
   const { isAdminMode } = useAdminStore();
@@ -39,7 +42,9 @@ const App: React.FC = () => {
     <HashRouter>
       <PrincipalProvider>
         <Routes>
-          <Route path="/" element={<AppLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             {isAdminMode ? (
               <>
                 <Route index element={<AdminDashboard />} />
@@ -76,8 +81,8 @@ const App: React.FC = () => {
             )}
           </Route>
           {/* The wizards have their own layout, so they're separate routes */}
-          <Route path="/intake-wizard" element={<IntakeWizard />} />
-          <Route path="/individual-intake-wizard" element={<IndividualIntakeWizard />} />
+          <Route path="/intake-wizard" element={<ProtectedRoute><IntakeWizard /></ProtectedRoute>} />
+          <Route path="/individual-intake-wizard" element={<ProtectedRoute><IndividualIntakeWizard /></ProtectedRoute>} />
         </Routes>
       </PrincipalProvider>
     </HashRouter>

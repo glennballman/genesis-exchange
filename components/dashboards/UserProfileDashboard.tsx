@@ -1,21 +1,27 @@
+
 import React, { useState, useEffect } from 'react';
 import { userProfileStore } from '../../services/userProfileStore';
-import { UserProfile, User } from '../../types';
+import { UserProfile, User, IndividualGumpScore } from '../../types';
 import { Card } from '../ui/Card';
 import { Icon } from '../ui/Icon';
 import { currentUser } from '../../data/genesisData';
 import ScoreHistoryChart from '../charts/ScoreHistoryChart';
 import { historyStore } from '../../services/historyStore';
 import EditMemberModal from '../team/EditMemberModal';
+import IGSCalculator from '../igs/IGSCalculator';
+import IGSDisplay from '../igs/IGSDisplay';
 
 const UserProfileDashboard: React.FC = () => {
     const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [user, setUser] = useState<User>(currentUser); // Using currentUser for now
     const [userHistory, setUserHistory] = useState(historyStore.getUserGumpHistory());
     const [isEditing, setIsEditing] = useState(false);
 
     const refreshProfile = () => {
         setProfile(userProfileStore.getProfile());
         setUserHistory(historyStore.getUserGumpHistory());
+        // In a real app, you'd fetch the latest user data here
+        // For now, we'll just update the local state for IGS
     };
 
     useEffect(() => {
@@ -28,6 +34,15 @@ const UserProfileDashboard: React.FC = () => {
         }
     }, []);
 
+    const handleIgsCalculation = (newScore: IndividualGumpScore) => {
+        const updatedUser = { ...user, igs: newScore };
+        setUser(updatedUser);
+        // Here you would also update the master user data source
+        // e.g., via a call to a global state management library or API
+        console.log("IGS calculation complete. New score:", newScore);
+    };
+
+
     if (!profile) {
         return <div>Loading Profile...</div>;
     }
@@ -37,17 +52,24 @@ const UserProfileDashboard: React.FC = () => {
             <div className="space-y-8">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-6">
-                        <img src={currentUser.avatar} alt={currentUser.name} className="w-24 h-24 rounded-full border-4 border-slate-700" />
+                        <img src={user.avatar} alt={user.name} className="w-24 h-24 rounded-full border-4 border-slate-700" />
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight text-white">{currentUser.name}</h1>
+                            <h1 className="text-3xl font-bold tracking-tight text-white">{user.name}</h1>
                             <p className="mt-1 text-gray-400">Your Personal Knowledge & Achievement Ledger</p>
                         </div>
                     </div>
                     <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-4 py-2 font-semibold text-white bg-cyan-600 rounded-md hover:bg-cyan-500 transition-colors">
                         <Icon name="user-profile" className="w-5 h-5" />
-                        Edit My Profile & IGS
+                        Edit My Profile
                     </button>
                 </div>
+                
+                {/* IGS Section */}
+                {user.igs ? (
+                    <IGSDisplay igs={user.igs} />
+                ) : (
+                    <IGSCalculator user={user} onCalculationComplete={handleIgsCalculation} />
+                )}
 
                 <Card>
                     <div className="flex justify-between items-center">
@@ -102,7 +124,7 @@ const UserProfileDashboard: React.FC = () => {
             </div>
             {isEditing && (
                 <EditMemberModal
-                    member={currentUser}
+                    member={user}
                     onClose={() => setIsEditing(false)}
                 />
             )}
