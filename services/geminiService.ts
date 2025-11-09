@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from '@google/genai';
-import { PulseAnalysis, DashboardInsight, CSuiteRole, ScoreComponent, TakeActionPlan, ImprovementTips, QuizQuestion, EGumpResponse, AIParsedInsights, IpAnalysisReport, ProfessionalAchievement, Mission, User, TeamAlignmentReport, Principal, DiligenceItem, PreliminaryInvestorReport, VaultDocument, SuggestedResponse, DetailedInvestorAnalysis } from '../types';
+import { PulseAnalysis, DashboardInsight, CSuiteRole, ScoreComponent, TakeActionPlan, ImprovementTips, QuizQuestion, EGumpResponse, AIParsedInsights, IpAnalysisReport, ProfessionalAchievement, Mission, User, TeamAlignmentReport, Principal, DiligenceItem, PreliminaryInvestorReport, VaultDocument, SuggestedResponse, DetailedInvestorAnalysis, IndividualGumpScore } from '../types';
 
 // --- Gemini API Call ---
 
@@ -15,7 +15,8 @@ const generateGeminiText = async (prompt: string): Promise<string> => {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorBody = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
     }
 
     const data = await response.json();
@@ -44,6 +45,22 @@ const mockAIParsedInsights: AIParsedInsights = {
   document_type: 'Mock Document',
   summary: 'This is a mock summary. The actual document has not been analyzed.',
   key_entities: ['mock data', 'development']
+};
+
+const mockIndividualGumpScore: IndividualGumpScore = {
+    total: 450,
+    provenExecution: {
+        total: 200,
+        exits: 0,
+        scaling: 150,
+        capitalGovernance: 50,
+    },
+    pillarsOfPotential: {
+        total: 250,
+        disciplineGrit: 100,
+        intellectualHorsepower: 80,
+        ambition: 70,
+    },
 };
 
 const mockDiligenceItems: Omit<DiligenceItem, 'status' | 'suggestedResponse' | 'authorId'>[] = [
@@ -117,6 +134,45 @@ const mockQuiz: QuizQuestion[] = [
 ];
 
 // --- "Fake AI" Functions ---
+
+export const calculateIGS = async (achievements: ProfessionalAchievement[]): Promise<IndividualGumpScore> => {
+    console.log(`AI Service: Calculating IGS for ${achievements.length} achievements.`);
+    
+    const achievementText = achievements.map(a => `- ${a.description}`).join('\n');
+
+    const prompt = `
+        Analyze the following professional achievements and calculate an Individual GUMP Score (IGS).
+        The user has provided the following achievements:
+        ${achievementText}
+
+        Please respond with ONLY a JSON object in the following format, with your calculated scores:
+        {
+            "total": number, // sum of the two sub-totals below
+            "provenExecution": {
+                "total": number, // sum of the 3 items below
+                "exits": number, // Points for successfully exiting a venture
+                "scaling": number, // Points for growing a team, product, or revenue
+                "capitalGovernance": number // Points for managing budgets or raising funds
+            },
+            "pillarsOfPotential": {
+                "total": number, // sum of the 3 items below
+                "disciplineGrit": number, // Points for perseverance, consistency, long-term commitment
+                "intellectualHorsepower": number, // Points for problem-solving, creativity, learning
+                "ambition": number // Points for setting and achieving audacious goals
+            }
+        }
+    `;
+
+    const result = await generateGeminiText(prompt);
+    try {
+        // The Gemini API might return the JSON wrapped in markdown, so we need to clean it.
+        const cleanedResult = result.replace(/```json\n|```/g, '').trim();
+        return JSON.parse(cleanedResult) as IndividualGumpScore;
+    } catch (e) {
+        console.error("Failed to parse IGS response from AI. Returning mock score.", e);
+        return mockIndividualGumpScore;
+    }
+};
 
 export const getPulseAnalysis = async (query: string): Promise<PulseAnalysis> => {
   console.log(`Mock AI: getPulseAnalysis called with query: ${query}`);

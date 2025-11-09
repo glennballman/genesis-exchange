@@ -1,3 +1,9 @@
+# November 5 2025 555PM Stable
+
+This build is stable and includes the following features and fixes:
+
+*   **User Creation:** Fixed a critical bug where new users were not being created correctly. The sign-up process now correctly creates an authentication user and a corresponding document in the `principals` collection.
+
 # November 5 Build 1034AM Stable
 
 This build is stable and includes the following features and fixes:
