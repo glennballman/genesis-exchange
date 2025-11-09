@@ -1,5 +1,5 @@
 import { Principal, User } from '../types';
-import { users } from './genesisData';
+import { users } from './users';
 
 export const companyPrincipal: Principal = {
     id: 'company-genesis',

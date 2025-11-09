@@ -2,7 +2,7 @@
   "apphosting": [
     {
       "backendId": "genesis-exchange",
-      "rootDir": "genesis-exchange",
+      "rootDir": ".",
       "ignore": [
         "node_modules",
         ".git",

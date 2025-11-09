@@ -4,7 +4,6 @@ import { userProfileStore } from '../../services/userProfileStore';
 import { UserProfile, User, IndividualGumpScore } from '../../types';
 import { Card } from '../ui/Card';
 import { Icon } from '../ui/Icon';
-import { currentUser } from '../../data/genesisData';
 import ScoreHistoryChart from '../charts/ScoreHistoryChart';
 import { historyStore } from '../../services/historyStore';
 import EditMemberModal from '../team/EditMemberModal';
@@ -13,37 +12,62 @@ import IGSDisplay from '../igs/IGSDisplay';
 
 const UserProfileDashboard: React.FC = () => {
     const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [user, setUser] = useState<User>(currentUser); // Using currentUser for now
+    const [user, setUser] = useState<User | null>(null);
     const [userHistory, setUserHistory] = useState(historyStore.getUserGumpHistory());
     const [isEditing, setIsEditing] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const refreshProfile = () => {
         setProfile(userProfileStore.getProfile());
         setUserHistory(historyStore.getUserGumpHistory());
-        // In a real app, you'd fetch the latest user data here
-        // For now, we'll just update the local state for IGS
     };
 
     useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const res = await fetch('/api/team');
+                if (!res.ok) throw new Error('Could not fetch user data');
+                const users = await res.json();
+                if(users && users.length > 0) {
+                    setUser(users[0]); // Assume current user is the first one
+                } else {
+                    throw new Error('No users found');
+                }
+            } catch (err: any) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchData();
         refreshProfile();
         const unsubscribe = userProfileStore.subscribe(refreshProfile);
         window.addEventListener('focus', refreshProfile);
         return () => {
             unsubscribe();
             window.removeEventListener('focus', refreshProfile);
-        }
+        };
     }, []);
 
     const handleIgsCalculation = (newScore: IndividualGumpScore) => {
+        if (!user) return;
         const updatedUser = { ...user, igs: newScore };
         setUser(updatedUser);
-        // Here you would also update the master user data source
-        // e.g., via a call to a global state management library or API
         console.log("IGS calculation complete. New score:", newScore);
     };
 
+    if (loading) {
+        return <div>Loading Profile...</div>;
+    }
 
-    if (!profile) {
+    if (error) {
+        return <div className="text-red-500">Error: {error}</div>;
+    }
+
+    if (!profile || !user) {
         return <div>Loading Profile...</div>;
     }
 
@@ -64,7 +88,6 @@ const UserProfileDashboard: React.FC = () => {
                     </button>
                 </div>
                 
-                {/* IGS Section */}
                 {user.igs ? (
                     <IGSDisplay igs={user.igs} />
                 ) : (
