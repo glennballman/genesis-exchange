@@ -1,10 +1,9 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../ui/Card';
 import { Icon } from '../ui/Icon';
-import { Vault, VaultId } from '../../types';
-import { scoreCalculationData } from '../../data/genesisData';
+import { Vault, VaultId, ScoreComponent } from '../../types';
 
 const vaults: Vault[] = [
     { id: 'ip', name: 'IP Vault', description: 'Patents, trademarks, and trade secrets.', icon: 'ip', color: 'sky' },
@@ -17,9 +16,36 @@ const vaults: Vault[] = [
 ];
 
 const VaultsDashboard: React.FC = () => {
-    const ddPreparednessComponents = scoreCalculationData.filter(
-        item => item.category === 'DD Preparedness'
-    );
+    const [ddPreparednessComponents, setDdPreparednessComponents] = useState<ScoreComponent[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch('/api/score-components');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data: ScoreComponent[] = await response.json();
+                const filteredData = data.filter(item => item.category === 'DD Preparedness');
+                setDdPreparednessComponents(filteredData);
+            } catch (e: any) {
+                setError(e.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    if (loading) {
+        return <div>Loading...</div>;
+    }
+
+    if (error) {
+        return <div className="text-red-500">Error: {error}</div>;
+    }
 
     const currentDdScore = ddPreparednessComponents.reduce(
         (sum, item) => sum + item.points,

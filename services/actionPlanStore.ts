@@ -1,6 +1,5 @@
 
 import { ActionPlanItem, ActionPlanStatus, TakeActionPlan, User, ScoreComponent, ImprovementTips } from '../types';
-import { currentUser } from '../data/genesisData';
 
 interface ActionPlanStore {
     addActionItem: (itemData: { concept: string; scoreComponent: ScoreComponent; aiSummary: string; takeActionPlan: TakeActionPlan; improvementTips: ImprovementTips; assignedTo: User; gumpPointsAvailable: number; }) => void;
