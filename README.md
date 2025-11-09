@@ -42,6 +42,7 @@ A more detailed explanation is available in `ARCHITECTURE.md`.
 
 ## Build History
 
+*   **Stable Build November 9 2025 2:45PM:** Corrected multiple missing dependencies in the `package.json` file (`recharts`, `marked`, `zustand`) that were causing build failures. The application was successfully deployed to Firebase Hosting.
 *   **Stable Build November 5 2025 555PM:** Fixed a critical bug where new users were not being created correctly. The sign-up process now correctly creates an authentication user and a corresponding document in the `principals` collection.
 *   **Stable Build November 6 2024 1100AM:** Major architectural update. Integrated Firebase and Firestore for backend data storage, authentication, and hosting. Merged all `Vertex` branch features (Team Management, Role-Based Dashboards, Gemini Integration) into `main`.
 *   **Stable Build November 5 2024 1034AM:** Fixed a significant layout bug in the reusable `Card` component. The flexbox alignment was changed from `justify-between` to `justify-start`, resolving a vertical spacing issue.

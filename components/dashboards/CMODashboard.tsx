@@ -1,11 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { cmoData } from '../../data/genesisData';
 import { Card } from '../ui/Card';
 import { Icon } from '../ui/Icon';
 import { getDashboardInsights } from '../../services/geminiService';
-import { DashboardInsight } from '../../types';
+import { DashboardInsight, MarketMetric } from '../../types';
+
+interface CmoData {
+    marketMetrics: MarketMetric[];
+    gtmPlan: { 
+        initiative: string;
+        status: string;
+        progress: number;
+    }[];
+}
 
 const AIInsightWidget: React.FC = () => {
     const [insight, setInsight] = useState<DashboardInsight | null>(null);
@@ -43,6 +51,40 @@ const AIInsightWidget: React.FC = () => {
 };
 
 const CMODashboard: React.FC = () => {
+    const [cmoData, setCmoData] = useState<CmoData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch('/api/cmo-data');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                setCmoData(data);
+            } catch (e: any) {
+                setError(e.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    if (loading) {
+        return <div>Loading...</div>;
+    }
+
+    if (error) {
+        return <div className="text-red-500">Error: {error}</div>;
+    }
+
+    if (!cmoData) {
+        return <div>No data available</div>;
+    }
+
   return (
     <div className="space-y-8">
         <div>

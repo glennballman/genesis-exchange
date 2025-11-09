@@ -5,7 +5,6 @@ import { Icon } from '../ui/Icon';
 import { getImprovementTips, getConceptSummary, getTakeActionPlan } from '../../services/geminiService';
 import { insightStore } from '../../services/insightStore';
 import { actionPlanStore } from '../../services/actionPlanStore';
-import { users, currentUser } from '../../data/genesisData';
 import LearningModule from './LearningModule';
 
 interface ScoreDetailModalProps {
@@ -83,8 +82,30 @@ const ScoreDetailModal: React.FC<ScoreDetailModalProps> = ({ component, onClose 
     const [showDelegateMenu, setShowDelegateMenu] = useState(false);
 
     const [activeLearningModule, setActiveLearningModule] = useState<YoutubeSuggestion | null>(null);
+    const [users, setUsers] = useState<User[]>([]);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loadingUsers, setLoadingUsers] = useState(true);
 
     useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const response = await fetch('/api/team');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                setUsers(data);
+                // Assuming the first user is the current user for now
+                setCurrentUser(data[0] || null);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoadingUsers(false);
+            }
+        };
+
+        fetchUsers();
+
         const fetchTips = async () => {
             setIsLoadingTips(true);
             try {
@@ -141,7 +162,7 @@ const ScoreDetailModal: React.FC<ScoreDetailModalProps> = ({ component, onClose 
     };
 
     const handleCreateActionItem = async (user: User) => {
-        if (isActionAdded || isSubmittingAction || !tips) return;
+        if (isActionAdded || isSubmittingAction || !tips || !currentUser) return;
 
         setIsSubmittingAction(true);
         setShowDelegateMenu(false);
@@ -333,18 +354,18 @@ const ScoreDetailModal: React.FC<ScoreDetailModalProps> = ({ component, onClose 
                         <Icon name="saved" className="w-4 h-4" />
                         {isSaved ? 'Saved' : 'Save for Later'}
                     </button>
-                    <button onClick={() => handleCreateActionItem(currentUser)} disabled={isActionAdded || isSubmittingAction} className="flex items-center justify-center gap-2 text-sm font-semibold text-green-300 hover:text-green-200 disabled:opacity-50 disabled:cursor-not-allowed w-48">
+                    {currentUser && <button onClick={() => handleCreateActionItem(currentUser)} disabled={isActionAdded || isSubmittingAction} className="flex items-center justify-center gap-2 text-sm font-semibold text-green-300 hover:text-green-200 disabled:opacity-50 disabled:cursor-not-allowed w-48">
                         {isSubmittingAction && !showDelegateMenu ? <LoadingSpinner className="p-0 w-4 h-4" /> : <Icon name="action-plan" className="w-4 h-4" />}
                         {isSubmittingAction && !showDelegateMenu ? 'Adding...' : isActionAdded ? 'Added to Plan' : 'Add to My Action Plan'}
-                    </button>
+                    </button>}
                     <div className="relative">
                         <button onClick={() => setShowDelegateMenu(!showDelegateMenu)} disabled={isActionAdded || isSubmittingAction} className="flex items-center gap-2 text-sm font-semibold text-blue-300 hover:text-blue-200 disabled:opacity-50 disabled:cursor-not-allowed">
                             <Icon name="team" className="w-4 h-4" />
                             Delegate This
                         </button>
-                        {showDelegateMenu && (
+                        {showDelegateMenu && !loadingUsers && (
                             <div className="absolute bottom-full right-0 mb-2 w-48 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10">
-                                {users.filter(u => u.id !== currentUser.id).map(user => (
+                                {users.filter(u => u.id !== currentUser?.id).map(user => (
                                     <button key={user.id} onClick={() => handleCreateActionItem(user)} className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-slate-600 flex items-center gap-2">
                                         <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full" />
                                         {user.name}
