@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { ctoData } from '../../data/genesisData';
 import { Card } from '../ui/Card';
 import { Icon } from '../ui/Icon';
 import { getDashboardInsights } from '../../services/geminiService';
-import { DashboardInsight, TechStackItem } from '../../types';
+import { DashboardInsight, TechStackItem, CtoData } from '../../types';
 
 const StatusBadge: React.FC<{ status: TechStackItem['status'] }> = ({ status }) => {
     const baseClasses = "px-2 py-0.5 text-xs font-medium rounded-full";
@@ -52,70 +51,104 @@ const AIInsightWidget: React.FC = () => {
 };
 
 const CTODashboard: React.FC = () => {
-  return (
-    <div className="space-y-8">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">CTO HUD: Product & Tech</h1>
-            <p className="mt-1 text-gray-400">Oversight of technical architecture, development velocity, and security posture.</p>
-        </div>
+    const [ctoData, setCtoData] = useState<CtoData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-                <Card>
-                    <h3 className="text-lg font-semibold text-white mb-4">Tech Stack Inventory</h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-gray-400 uppercase bg-slate-900/50">
-                                <tr>
-                                    <th scope="col" className="px-4 py-3">Component</th>
-                                    <th scope="col" className="px-4 py-3">Category</th>
-                                    <th scope="col" className="px-4 py-3">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {ctoData.techStack.map(item => (
-                                    <tr key={item.name} className="border-b border-slate-700 hover:bg-slate-800/40">
-                                        <td className="px-4 py-3 font-medium text-white">{item.name}</td>
-                                        <td className="px-4 py-3 text-gray-300">{item.category}</td>
-                                        <td className="px-4 py-3"><StatusBadge status={item.status} /></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </Card>
-                <Card>
-                    <h3 className="text-lg font-semibold text-white mb-4">Product Roadmap</h3>
-                     <div className="space-y-4">
-                        {ctoData.roadmap.map(item => (
-                            <div key={item.feature}>
-                                <div className="flex justify-between mb-1">
-                                    <span className="text-base font-medium text-white">{item.feature} <span className="text-sm text-gray-400">({item.quarter})</span></span>
-                                    <span className="text-sm font-medium text-sky-300">{item.status}</span>
-                                </div>
-                                <div className="w-full bg-slate-700 rounded-full h-2.5">
-                                    <div className="bg-sky-500 h-2.5 rounded-full" style={{width: item.status === 'Completed' ? '100%' : item.status === 'In Progress' ? '66%' : '10%'}}></div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </Card>
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch('/api/cto-data');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                setCtoData(data);
+            } catch (e: any) {
+                setError(e.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    if (loading) {
+        return <div>Loading...</div>;
+    }
+
+    if (error) {
+        return <div className="text-red-500">Error: {error}</div>;
+    }
+
+    if (!ctoData) {
+        return <div>No data available</div>;
+    }
+
+    return (
+        <div className="space-y-8">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight text-white">CTO HUD: Product & Tech</h1>
+                <p className="mt-1 text-gray-400">Oversight of technical architecture, development velocity, and security posture.</p>
             </div>
-            <div className="lg:col-span-1 space-y-6">
-                <Card>
-                    <h3 className="text-lg font-semibold text-white mb-4">Security Posture</h3>
-                    <div className="text-center">
-                        <div className="text-6xl font-bold text-sky-400">{ctoData.securityAudit.score}</div>
-                        <div className="text-sm text-gray-400">Audit Score</div>
-                        <p className="mt-4 text-sm text-gray-300">Last scan: {ctoData.securityAudit.lastScan}</p>
-                        <p className="text-sm text-red-400">{ctoData.securityAudit.vulnerabilities} critical vulnerabilities found.</p>
-                    </div>
-                </Card>
-                <AIInsightWidget />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                    <Card>
+                        <h3 className="text-lg font-semibold text-white mb-4">Tech Stack Inventory</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-gray-400 uppercase bg-slate-900/50">
+                                    <tr>
+                                        <th scope="col" className="px-4 py-3">Component</th>
+                                        <th scope="col" className="px-4 py-3">Category</th>
+                                        <th scope="col" className="px-4 py-3">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {ctoData.techStack.map(item => (
+                                        <tr key={item.name} className="border-b border-slate-700 hover:bg-slate-800/40">
+                                            <td className="px-4 py-3 font-medium text-white">{item.name}</td>
+                                            <td className="px-4 py-3 text-gray-300">{item.category}</td>
+                                            <td className="px-4 py-3"><StatusBadge status={item.status} /></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                    <Card>
+                        <h3 className="text-lg font-semibold text-white mb-4">Product Roadmap</h3>
+                        <div className="space-y-4">
+                            {ctoData.roadmap.map(item => (
+                                <div key={item.feature}>
+                                    <div className="flex justify-between mb-1">
+                                        <span className="text-base font-medium text-white">{item.feature} <span className="text-sm text-gray-400">({item.quarter})</span></span>
+                                        <span className="text-sm font-medium text-sky-300">{item.status}</span>
+                                    </div>
+                                    <div className="w-full bg-slate-700 rounded-full h-2.5">
+                                        <div className="bg-sky-500 h-2.5 rounded-full" style={{width: item.status === 'Completed' ? '100%' : item.status === 'In Progress' ? '66%' : '10%'}}></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+                </div>
+                <div className="lg:col-span-1 space-y-6">
+                    <Card>
+                        <h3 className="text-lg font-semibold text-white mb-4">Security Posture</h3>
+                        <div className="text-center">
+                            <div className="text-6xl font-bold text-sky-400">{ctoData.securityAudit.score}</div>
+                            <div className="text-sm text-gray-400">Audit Score</div>
+                            <p className="mt-4 text-sm text-gray-300">Last scan: {ctoData.securityAudit.lastScan}</p>
+                            <p className="text-sm text-red-400">{ctoData.securityAudit.vulnerabilities} critical vulnerabilities found.</p>
+                        </div>
+                    </Card>
+                    <AIInsightWidget />
+                </div>
             </div>
         </div>
-    </div>
-  );
+    );
 };
 
 export default CTODashboard;

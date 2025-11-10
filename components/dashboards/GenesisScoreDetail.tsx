@@ -1,6 +1,5 @@
 
-import React from 'react';
-import { genesisScoreData } from '../../data/genesisData';
+import React, { useState, useEffect } from 'react';
 import ScoreBreakdownChart from '../ScoreBreakdownChart';
 import ScorePillarCard from '../ScorePillarCard';
 import ScoreOverlayCard from '../ScoreOverlayCard';
@@ -9,8 +8,43 @@ import { Icon } from '../ui/Icon';
 import ScoreHistoryChart from '../charts/ScoreHistoryChart';
 import { historyStore } from '../../services/historyStore';
 import { Card } from '../ui/Card';
+import { GenesisScoreData } from '../../types';
 
 const GenesisScoreDetail: React.FC = () => {
+  const [genesisScoreData, setGenesisScoreData] = useState<GenesisScoreData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch('/api/genesis-score');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setGenesisScoreData(data);
+      } catch (e: any) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-500">Error: {error}</div>;
+  }
+
+  if (!genesisScoreData) {
+    return <div>No data available</div>;
+  }
+
   const basePillars = genesisScoreData.scoring_layers[0];
   const nuanceOverlays = genesisScoreData.nuance_overlays[0];
   const innovationHorizon = genesisScoreData.innovation_horizon[0];

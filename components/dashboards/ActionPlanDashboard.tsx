@@ -2,12 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { actionPlanStore } from '../../services/actionPlanStore';
 import { ActionPlanItem, ActionPlanStatus, User, YoutubeSuggestion } from '../../types';
-import { users, currentUser } from '../../data/genesisData';
 import { Card } from '../ui/Card';
 import { Icon } from '../ui/Icon';
 import LearningModule from '../score/LearningModule';
 
-const ActionItemCard: React.FC<{ item: ActionPlanItem; onUpdate: () => void; onStartLearning: (module: YoutubeSuggestion) => void; }> = ({ item, onUpdate, onStartLearning }) => {
+const ActionItemCard: React.FC<{ item: ActionPlanItem; onUpdate: () => void; onStartLearning: (module: YoutubeSuggestion) => void; users: User[], currentUser: User | null }> = ({ item, onUpdate, onStartLearning, users, currentUser }) => {
     const [showDelegateMenu, setShowDelegateMenu] = useState(false);
 
     const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -16,9 +15,11 @@ const ActionItemCard: React.FC<{ item: ActionPlanItem; onUpdate: () => void; onS
     };
 
     const handleDelegate = (user: User) => {
-        actionPlanStore.delegateItem(item.id, currentUser, user);
-        setShowDelegateMenu(false);
-        onUpdate();
+        if(currentUser){
+          actionPlanStore.delegateItem(item.id, currentUser, user);
+          setShowDelegateMenu(false);
+          onUpdate();
+        }
     };
 
     const { scoreComponent } = item;
@@ -113,7 +114,7 @@ const ActionItemCard: React.FC<{ item: ActionPlanItem; onUpdate: () => void; onS
                     </button>
                     {showDelegateMenu && (
                         <div className="absolute bottom-full right-0 mb-2 w-48 bg-slate-700 border border-slate-600 rounded-md shadow-lg z-10">
-                            {users.filter(u => u.id !== currentUser.id).map(user => (
+                            {users.filter(u => u.id !== currentUser?.id).map(user => (
                                 <button key={user.id} onClick={() => handleDelegate(user)} className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-slate-600 flex items-center gap-2">
                                     <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full" />
                                     {user.name}
@@ -130,10 +131,37 @@ const ActionItemCard: React.FC<{ item: ActionPlanItem; onUpdate: () => void; onS
 const ActionPlanDashboard: React.FC = () => {
     const [actionItems, setActionItems] = useState<ActionPlanItem[]>([]);
     const [activeLearningModule, setActiveLearningModule] = useState<YoutubeSuggestion | null>(null);
+    const [users, setUsers] = useState<User[]>([]);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchUsers = async () => {
+        try {
+            const response = await fetch('/api/team');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            setUsers(data);
+            // Assuming the first user is the current user for now
+            setCurrentUser(data[0] || null); 
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const refreshItems = () => {
-        setActionItems(actionPlanStore.getItemsForUser(currentUser.id));
+        if (currentUser) {
+            setActionItems(actionPlanStore.getItemsForUser(currentUser.id));
+        }
     };
+
+    useEffect(() => {
+        fetchUsers();
+    }, []);
 
     useEffect(() => {
         refreshItems();
@@ -141,8 +169,24 @@ const ActionPlanDashboard: React.FC = () => {
         return () => {
             window.removeEventListener('focus', refreshItems);
         };
-    }, []);
+    }, [currentUser]);
 
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <p className="text-white">Loading Action Plan...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center h-64 bg-red-900/20 border border-red-500 rounded-lg">
+                <p className="text-red-400">Error loading data: {error}</p>
+            </div>
+        );
+    }
+    
     if (activeLearningModule) {
         return <LearningModule module={activeLearningModule} onClose={() => { setActiveLearningModule(null); refreshItems(); }} />;
     }
@@ -163,7 +207,7 @@ const ActionPlanDashboard: React.FC = () => {
             ) : (
                 <div className="space-y-6">
                     {actionItems.map(item => (
-                        <ActionItemCard key={item.id} item={item} onUpdate={refreshItems} onStartLearning={setActiveLearningModule} />
+                        <ActionItemCard key={item.id} item={item} onUpdate={refreshItems} onStartLearning={setActiveLearningModule} users={users} currentUser={currentUser} />
                     ))}
                 </div>
             )}

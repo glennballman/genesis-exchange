@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { VaultDocument, DocumentPermission, PermissionLevel, Investor } from '../../types';
 import { permissionsStore } from '../../services/permissionsStore';
-import { investors } from '../../data/genesisData';
 import { Icon } from '../ui/Icon';
 
 interface ShareDocumentModalProps {
@@ -12,14 +11,36 @@ interface ShareDocumentModalProps {
 
 const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({ document, onClose }) => {
     const [permissions, setPermissions] = useState<DocumentPermission[]>([]);
-    const [selectedInvestor, setSelectedInvestor] = useState<string>(investors[0]?.id || '');
+    const [investors, setInvestors] = useState<Investor[]>([]);
+    const [selectedInvestor, setSelectedInvestor] = useState<string>('');
     const [selectedLevel, setSelectedLevel] = useState<PermissionLevel>('VIEW_ONLY');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchInvestors = async () => {
+        try {
+            const response = await fetch('/api/investors');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            setInvestors(data);
+            if (data.length > 0) {
+                setSelectedInvestor(data[0].id);
+            }
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const refreshPermissions = () => {
         setPermissions(permissionsStore.getPermissionsForDocument(document.id));
     };
 
     useEffect(() => {
+        fetchInvestors();
         refreshPermissions();
     }, [document.id]);
 
@@ -52,22 +73,26 @@ const ShareDocumentModal: React.FC<ShareDocumentModalProps> = ({ document, onClo
                 </header>
 
                 <div className="p-6 space-y-6">
-                    <div>
-                        <h3 className="text-md font-semibold text-white mb-2">Grant New Access</h3>
-                        <div className="flex flex-col sm:flex-row gap-2 items-center bg-slate-900/50 p-3 rounded-lg">
-                            <select value={selectedInvestor} onChange={(e) => setSelectedInvestor(e.target.value)} className="w-full sm:w-1/2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-md focus:ring-2 focus:ring-cyan-500 outline-none">
-                                {investors.map(inv => <option key={inv.id} value={inv.id}>{inv.name} ({inv.firm})</option>)}
-                            </select>
-                            <select value={selectedLevel} onChange={(e) => setSelectedLevel(e.target.value as PermissionLevel)} className="w-full sm:w-1/3 px-3 py-2 bg-slate-800 border border-slate-600 rounded-md focus:ring-2 focus:ring-cyan-500 outline-none">
-                                <option value="VIEW_ONLY">View Only</option>
-                                <option value="VIEW_WITH_REDACTIONS">View with Redactions</option>
-                                <option value="FULL_ACCESS">Full Access</option>
-                            </select>
-                            <button onClick={handleGrantAccess} className="w-full sm:w-auto flex-grow px-4 py-2 text-sm font-semibold text-white bg-cyan-600 rounded-md hover:bg-cyan-500">
-                                Grant Access
-                            </button>
+                     {loading && <p>Loading investors...</p>}
+                    {error && <p className="text-red-500">{error}</p>}
+                    {!loading && !error && (
+                        <div>
+                            <h3 className="text-md font-semibold text-white mb-2">Grant New Access</h3>
+                            <div className="flex flex-col sm:flex-row gap-2 items-center bg-slate-900/50 p-3 rounded-lg">
+                                <select value={selectedInvestor} onChange={(e) => setSelectedInvestor(e.target.value)} className="w-full sm:w-1/2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-md focus:ring-2 focus:ring-cyan-500 outline-none">
+                                    {investors.map(inv => <option key={inv.id} value={inv.id}>{inv.name} ({inv.firm})</option>)}
+                                </select>
+                                <select value={selectedLevel} onChange={(e) => setSelectedLevel(e.target.value as PermissionLevel)} className="w-full sm:w-1/3 px-3 py-2 bg-slate-800 border border-slate-600 rounded-md focus:ring-2 focus:ring-cyan-500 outline-none">
+                                    <option value="VIEW_ONLY">View Only</option>
+                                    <option value="VIEW_WITH_REDACTIONS">View with Redactions</option>
+                                    <option value="FULL_ACCESS">Full Access</option>
+                                </select>
+                                <button onClick={handleGrantAccess} className="w-full sm:w-auto flex-grow px-4 py-2 text-sm font-semibold text-white bg-cyan-600 rounded-md hover:bg-cyan-500">
+                                    Grant Access
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div>
                         <h3 className="text-md font-semibold text-white mb-2">Active Permissions</h3>

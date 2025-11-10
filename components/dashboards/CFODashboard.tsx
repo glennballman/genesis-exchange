@@ -1,11 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { cfoData } from '../../data/genesisData';
 import { Card } from '../ui/Card';
 import { Icon } from '../ui/Icon';
 import { getDashboardInsights } from '../../services/geminiService';
-import { DashboardInsight } from '../../types';
+import { DashboardInsight, Financials, CapTable } from '../../types';
+
+interface CfoData {
+    financials: Financials[];
+    capTable: CapTable;
+}
 
 const AIInsightWidget: React.FC = () => {
     const [insight, setInsight] = useState<DashboardInsight | null>(null);
@@ -43,7 +47,42 @@ const AIInsightWidget: React.FC = () => {
 };
 
 const CFODashboard: React.FC = () => {
+  const [cfoData, setCfoData] = useState<CfoData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+      const fetchData = async () => {
+          try {
+              const response = await fetch('/api/cfo-data');
+              if (!response.ok) {
+                  throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              const data = await response.json();
+              setCfoData(data);
+          } catch (e: any) {
+              setError(e.message);
+          } finally {
+              setLoading(false);
+          }
+      };
+      fetchData();
+  }, []);
+
+  if (loading) {
+      return <div>Loading...</div>;
+  }
+
+  if (error) {
+      return <div className="text-red-500">Error: {error}</div>;
+  }
+
+  if (!cfoData) {
+      return <div>No data available</div>;
+  }
+
   const latestFinancials = cfoData.financials[cfoData.financials.length - 1];
+
   return (
     <div className="space-y-8">
         <div>
