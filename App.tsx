@@ -53,6 +53,7 @@ const App: React.FC = () => {
                 <Route path="admin/principal/:id" element={<IndividualPrincipalDetail />} />
                 <Route path="admin/users" element={<AdminUserManagement />} />
                 <Route path="admin/workflows" element={<AdminWorkflows />} />
+                <Route path="admin/roadmap" element={<RoadmapDashboard />} />
               </>
             ) : (
               <>
@@ -72,7 +73,6 @@ const App: React.FC = () => {
                 <Route path="due-diligence" element={<DiligenceHub />} />
                 <Route path="diligence/:packageId" element={<DiligencePackageView />} />
                 <Route path="documentation" element={<DocumentationDashboard />} />
-                <Route path="roadmap" element={<RoadmapDashboard />} />
                 <Route path="alignment" element={<AlignmentDashboard />} />
                 <Route path="discovery" element={<DiscoveryDashboard />} />
                 <Route path="discovery/principal/:id" element={<IndividualPrincipalDetail />} />

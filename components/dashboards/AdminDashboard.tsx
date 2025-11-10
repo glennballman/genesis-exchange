@@ -41,6 +41,16 @@ const AdminDashboard = () => {
             <Link to="/individual-intake-wizard" className="text-blue-400 hover:underline">Start New Individual Intake</Link>
           </div>
         </Card>
+        <Card className="hover:shadow-lg transition-shadow">
+          <h2 className="text-xl font-semibold mb-4 text-white flex items-center">
+            <Icon name="map" className="mr-3" />
+            Project Roadmap
+          </h2>
+          <p className="text-gray-400 mb-4">View the project roadmap and upcoming features.</p>
+          <div className="flex flex-col space-y-2">
+            <Link to="/admin/roadmap" className="text-blue-400 hover:underline">View Roadmap</Link>
+          </div>
+        </Card>
       </div>
     </div>
   );

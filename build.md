@@ -1,3 +1,10 @@
+# November 9 2025 5:59 PM Stable
+
+This build is stable and includes the following features and fixes:
+
+*   **Project Roadmap:** Replaced the placeholder content on the "Project Roadmap" page with the actual roadmap from `ROADMAP.md`.
+*   **Build Fixes:** Resolved a persistent build issue by correcting the entry point in `index.html` to point to the correct `index.tsx` file in the root directory.
+
 # November 9 2025 2:45PM Stable
 
 This build is stable and includes the following features and fixes:
