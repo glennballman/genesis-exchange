@@ -77,7 +77,7 @@ const processPackageInBackground = async (pkg: DiligencePackage, text: string) =
 
     packages[packageIndex].items = [...investorItems, ...founderItems];
 
-    const allDocs = vaultStore.getAllDocuments();
+    const allDocs = vaultStore.getState().documents;
     for (const item of investorItems) {
         const suggestion = await findEvidenceForRequest(item.request, allDocs);
         const currentPackage = packages[packageIndex];

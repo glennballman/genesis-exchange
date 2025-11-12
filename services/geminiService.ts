@@ -20,16 +20,23 @@ const generateGeminiText = async (prompt: string): Promise<string> => {
     }
 
     const data = await response.json();
+    if (!data.generated_text) {
+        throw new Error("Received empty or invalid response from AI service.");
+    }
     return data.generated_text;
   } catch (error) {
     console.error("Failed to generate text from Gemini API:", error);
-    // Return a mock response or a more specific error message
-    return "Error: Could not connect to the AI service.";
+    throw error; // Re-throw to be caught by the calling function
   }
 };
 
+// --- Helper for cleaning AI responses ---
+const cleanAndParseJson = <T>(rawText: string): T => {
+    const cleanedText = rawText.replace(/```json\n|```/g, '').trim();
+    return JSON.parse(cleanedText) as T;
+}
 
-// --- Mock Data and Schemas ---
+// --- Mock Data and Schemas (used as fallback) ---
 
 const mockPulseAnalysis: PulseAnalysis = {
   opportunities: ["AI features are currently in mock mode.", "Focus on UI/UX development."],
@@ -133,41 +140,24 @@ const mockQuiz: QuizQuestion[] = [
     }
 ];
 
-// --- "Fake AI" Functions ---
+// --- Live AI Functions with Mock Fallbacks ---
 
 export const calculateIGS = async (achievements: ProfessionalAchievement[]): Promise<IndividualGumpScore> => {
     console.log(`AI Service: Calculating IGS for ${achievements.length} achievements.`);
-    
     const achievementText = achievements.map(a => `- ${a.description}`).join('\n');
-
     const prompt = `
         Analyze the following professional achievements and calculate an Individual GUMP Score (IGS).
         The user has provided the following achievements:
         ${achievementText}
-
         Please respond with ONLY a JSON object in the following format, with your calculated scores:
         {
-            "total": number, // sum of the two sub-totals below
-            "provenExecution": {
-                "total": number, // sum of the 3 items below
-                "exits": number, // Points for successfully exiting a venture
-                "scaling": number, // Points for growing a team, product, or revenue
-                "capitalGovernance": number // Points for managing budgets or raising funds
-            },
-            "pillarsOfPotential": {
-                "total": number, // sum of the 3 items below
-                "disciplineGrit": number, // Points for perseverance, consistency, long-term commitment
-                "intellectualHorsepower": number, // Points for problem-solving, creativity, learning
-                "ambition": number // Points for setting and achieving audacious goals
-            }
+            "total": number, "provenExecution": {"total": number, "exits": number, "scaling": number, "capitalGovernance": number},
+            "pillarsOfPotential": {"total": number, "disciplineGrit": number, "intellectualHorsepower": number, "ambition": number}
         }
     `;
-
-    const result = await generateGeminiText(prompt);
     try {
-        // The Gemini API might return the JSON wrapped in markdown, so we need to clean it.
-        const cleanedResult = result.replace(/```json\n|```/g, '').trim();
-        return JSON.parse(cleanedResult) as IndividualGumpScore;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<IndividualGumpScore>(result);
     } catch (e) {
         console.error("Failed to parse IGS response from AI. Returning mock score.", e);
         return mockIndividualGumpScore;
@@ -175,34 +165,37 @@ export const calculateIGS = async (achievements: ProfessionalAchievement[]): Pro
 };
 
 export const getPulseAnalysis = async (query: string): Promise<PulseAnalysis> => {
-  console.log(`Mock AI: getPulseAnalysis called with query: ${query}`);
-  const prompt = `Analyze the following query and provide a pulse analysis in JSON format: ${query}`;
-  const result = await generateGeminiText(prompt);
+  console.log(`AI Service: getPulseAnalysis called with query: ${query}`);
+  const prompt = `Analyze our application's status based on this query: "${query}" and provide a pulse analysis. Respond in JSON format: {"opportunities": string[], "threats": string[]}`;
   try {
-    return JSON.parse(result) as PulseAnalysis;
+    const result = await generateGeminiText(prompt);
+    return cleanAndParseJson<PulseAnalysis>(result);
   } catch (e) {
+    console.error("Failed to get pulse analysis from AI. Returning mock data.", e);
     return mockPulseAnalysis;
   }
 };
 
 export const getDashboardInsights = async (role: CSuiteRole): Promise<DashboardInsight> => {
-    console.log(`Mock AI: getDashboardInsights called for role: ${role}`);
-    const prompt = `Generate dashboard insights for a ${role} in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: getDashboardInsights called for role: ${role}`);
+    const prompt = `Generate 2-3 key dashboard insights for a ${role} of a tech startup. Respond in JSON format: {"title": string, "points": string[]}`;
     try {
-        return JSON.parse(result) as DashboardInsight;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<DashboardInsight>(result);
     } catch (e) {
+        console.error("Failed to get dashboard insights from AI. Returning mock data.", e);
         return mockDashboardInsight;
     }
 };
 
 export const analyzeDocument = async (documentName: string): Promise<AIParsedInsights> => {
-    console.log(`Mock AI: analyzeDocument called for document: ${documentName}`);
-    const prompt = `Analyze the document named ${documentName} and provide insights in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: analyzeDocument called for document: ${documentName}`);
+    const prompt = `Analyze the document named "${documentName}" and provide a brief summary and key entities. Respond in JSON format: {"document_type": string, "summary": string, "key_entities": string[]}`;
     try {
-        return JSON.parse(result) as AIParsedInsights;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<AIParsedInsights>(result);
     } catch (e) {
+        console.error("Failed to analyze document with AI. Returning mock data.", e);
         if (documentName.toLowerCase().includes('resume')) {
             return { ...mockAIParsedInsights, document_type: 'Resume' };
         }
@@ -211,56 +204,61 @@ export const analyzeDocument = async (documentName: string): Promise<AIParsedIns
 };
 
 export const parseDiligenceRequestList = async (text: string): Promise<Omit<DiligenceItem, 'status' | 'suggestedResponse' | 'authorId'>[]> => {
-    console.log(`Mock AI: parseDiligenceRequestList called with text.`);
-    const prompt = `Parse the following text and extract diligence requests in JSON format: ${text}`;
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: parseDiligenceRequestList called.`);
+    const prompt = `Parse the following text which contains a list of due diligence requests from an investor. Extract each distinct request. For each request, assign a category: 'Financials', 'Team', 'IP', 'Traction', 'Market', or 'Other'. Respond with ONLY a JSON array in the format: [{"id": string, "category": string, "request": string}]. The ID should be a short, unique string like 'req-1', 'req-2', etc. Text: ${text}`;
     try {
-        return JSON.parse(result) as Omit<DiligenceItem, 'status' | 'suggestedResponse' | 'authorId'>[];
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<Omit<DiligenceItem, 'status' | 'suggestedResponse' | 'authorId'>[]>(result);
     } catch (e) {
+        console.error("Failed to parse diligence list from AI. Returning mock data.", e);
         return mockDiligenceItems;
     }
 };
 
 export const findEvidenceForRequest = async (requestText: string, availableDocs: VaultDocument[]): Promise<SuggestedResponse> => {
-    console.log(`Mock AI: findEvidenceForRequest called for request: ${requestText}`);
-    const prompt = `Find evidence for the request '${requestText}' from the available documents and provide a response in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: findEvidenceForRequest called for request: ${requestText}`);
+    const docList = availableDocs.map(d => `{"documentId": "${d.id}", "documentName": "${d.name}"}`).join(', ');
+    const prompt = `An investor is asking: "${requestText}". I have the following documents in my vault: [${docList}]. First, formulate a concise, direct response to the investor's question based on the document list. Second, identify the top 1-3 most relevant documents from the list as evidence. Respond with ONLY a JSON object in the format: {"confidenceScore": number, "responseText": string, "evidence": [{"documentId": string, "documentName": string, "relevance": string}]}. The confidence score (0-100) should represent how well you can answer the request with the given documents.`;
     try {
-        return JSON.parse(result) as SuggestedResponse;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<SuggestedResponse>(result);
     } catch (e) {
+        console.error("Failed to find evidence with AI. Returning mock data.", e);
         return mockSuggestedResponse;
     }
 };
 
 export const generateInvestorPreliminaryReport = async (investorName: string): Promise<PreliminaryInvestorReport> => {
-    console.log(`Mock AI: generateInvestorPreliminaryReport called for investor: ${investorName}`);
-    const prompt = `Generate a preliminary investor report for ${investorName} in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: generateInvestorPreliminaryReport called for investor: ${investorName}`);
+    const prompt = `Generate a brief preliminary report on the investment entity "${investorName}". Include a short summary, a "caution score" (0-100, where higher is more cautious), and up to 3 relevant public links (e.g., website, Crunchbase, etc.). Respond with ONLY a JSON object in the format: {"summary": string, "cautionScore": number, "links": [{"title": string, "url": string}]}`;
     try {
-        return JSON.parse(result) as PreliminaryInvestorReport;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<PreliminaryInvestorReport>(result);
     } catch (e) {
+        console.error("Failed to generate investor report from AI. Returning mock data.", e);
         return mockPreliminaryInvestorReport;
     }
 };
 
 export const analyzePrincipalWebsite = async (url: string): Promise<DetailedInvestorAnalysis> => {
-    console.log(`Mock AI: analyzePrincipalWebsite called for URL: ${url}`);
-    const prompt = `Analyze the principal website at ${url} and provide a detailed investor analysis in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: analyzePrincipalWebsite called for URL: ${url}`);
+    const prompt = `Analyze the investor website at ${url}. Extract key personnel (name, title), summarize their investment thesis, list a few recent investments (company name, sector), and find relevant public links. Respond with ONLY a JSON object in the format: {"keyPersonnel": [{"name": string, "title": string}], "investmentThesis": string, "recentInvestments": [{"companyName": string, "sector": string}], "publicLinks": [{"title": string, "url": string}]}`;
     try {
-        return JSON.parse(result) as DetailedInvestorAnalysis;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<DetailedInvestorAnalysis>(result);
     } catch (e) {
+        console.error("Failed to analyze principal website with AI. Returning mock data.", e);
         return mockDetailedInvestorAnalysis;
     }
 };
 
 export const generateAlignmentNarrative = async (source: Principal, target: Principal, conflict: boolean): Promise<string> => {
-    console.log(`Mock AI: generateAlignmentNarrative called.`);
-    const prompt = `Generate an alignment narrative between ${source.name} and ${target.name} in JSON format. Conflict: ${conflict}`;
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: generateAlignmentNarrative called.`);
+    const prompt = `Generate a short (2-3 sentence) narrative explaining the ${conflict ? 'conflict points' : 'synergies'} between ${source.name} and ${target.name}.`;
     try {
-        return result;
+        return await generateGeminiText(prompt);
     } catch (e) {
+        console.error("Failed to generate alignment narrative from AI. Returning mock data.", e);
         return conflict 
         ? "This is a mock narrative explaining a conflict."
         : "This is a mock narrative explaining a strong alignment.";
@@ -268,23 +266,25 @@ export const generateAlignmentNarrative = async (source: Principal, target: Prin
 };
 
 export const generateTeamAlignmentReport = async (mission: Mission, team: User[]): Promise<Omit<TeamAlignmentReport, 'individualReports' | 'teamAmbitionIndex' | 'teamTransparencyIndex'>> => {
-    console.log(`Mock AI: generateTeamAlignmentReport called.`);
-    const prompt = `Generate a team alignment report for a team with the mission '${mission.statement}' in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: generateTeamAlignmentReport called.`);
+    const prompt = `Generate a team alignment report for a team with the mission "${mission.statement}". Provide an executive summary, key synergies, and areas of divergence. Respond in JSON format: {"alignmentScore": number, "executiveSummary": string, "keySynergies": string[], "areasOfDivergence": string[]}`;
     try {
-        return JSON.parse(result) as Omit<TeamAlignmentReport, 'individualReports' | 'teamAmbitionIndex' | 'teamTransparencyIndex'>;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<Omit<TeamAlignmentReport, 'individualReports' | 'teamAmbitionIndex' | 'teamTransparencyIndex'>>(result);
     } catch (e) {
+        console.error("Failed to generate team alignment report from AI. Returning mock data.", e);
         return mockTeamAlignmentReport;
     }
 };
 
 export const generateIndividualAlignmentReport = async (user: User, companyMission: string): Promise<Omit<IndividualAlignmentReport, 'ambitionIndex' | 'transparencyIndex'>> => {
-    console.log(`Mock AI: generateIndividualAlignmentReport for user: ${user.name}`);
-    const prompt = `Generate an individual alignment report for ${user.name} with the company mission '${companyMission}' in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: generateIndividualAlignmentReport for user: ${user.name}`);
+    const prompt = `Generate an individual alignment report for ${user.name} with the company mission "${companyMission}". Provide a summary, synergies, gaps, and conversation starters. Respond in JSON format: {"userId": string, "userName": string, "missionAlignmentScore": number, "executiveSummary": string, "keySynergies": string[], "alignmentGaps": string[], "conversationStarters": string[]}`;
     try {
-        return JSON.parse(result) as Omit<IndividualAlignmentReport, 'ambitionIndex' | 'transparencyIndex'>;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<Omit<IndividualAlignmentReport, 'ambitionIndex' | 'transparencyIndex'>>(result);
     } catch (e) {
+        console.error("Failed to generate individual alignment report from AI. Returning mock data.", e);
         const missionAlignmentScore = 50 + Math.floor(Math.random() * 50);
         return {
             userId: user.id,
@@ -299,12 +299,13 @@ export const generateIndividualAlignmentReport = async (user: User, companyMissi
 };
 
 export const generateProfileSummaryAndNarratives = async (name: string, title: string, achievements: ProfessionalAchievement[], links: { type: string, url: string }[]): Promise<{ summary: string; achievements: ProfessionalAchievement[] }> => {
-    console.log(`Mock AI: generateProfileSummaryAndNarratives for: ${name}`);
-    const prompt = `Generate a profile summary and narratives for ${name}, the ${title}, in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: generateProfileSummaryAndNarratives for: ${name}`);
+    const prompt = `Generate a professional summary and enhance achievement descriptions for ${name}, the ${title}. Respond in JSON format: {"summary": string, "achievements": [{"description": string, "organizationName": string, ...}]}`;
     try {
-        return JSON.parse(result) as { summary: string; achievements: ProfessionalAchievement[] };
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<{ summary: string; achievements: ProfessionalAchievement[] }>(result);
     } catch (e) {
+        console.error("Failed to generate profile summary from AI. Returning mock data.", e);
         const updatedAchievements = achievements.map(ach => ({
             ...ach,
             description: `This is a mock narrative for the achievement: ${ach.description}`,
@@ -318,56 +319,60 @@ export const generateProfileSummaryAndNarratives = async (name: string, title: s
 };
 
 export const generateQuiz = async (topic: string): Promise<QuizQuestion[]> => {
-    console.log(`Mock AI: generateQuiz for topic: ${topic}`);
-    const prompt = `Generate a quiz on the topic of ${topic} in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: generateQuiz for topic: ${topic}`);
+    const prompt = `Generate a multiple-choice quiz on the topic of ${topic}. Respond in JSON format: [{"question": string, "options": string[], "correctAnswer": string}]`;
     try {
-        return JSON.parse(result) as QuizQuestion[];
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<QuizQuestion[]>(result);
     } catch (e) {
+        console.error("Failed to generate quiz from AI. Returning mock data.", e);
         return mockQuiz;
     }
 };
 
 export const getConceptSummary = async (concept: string): Promise<string> => {
-    console.log(`Mock AI: getConceptSummary for concept: ${concept}`);
-    const prompt = `Provide a summary and actionable steps for the concept '${concept}' in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: getConceptSummary for concept: ${concept}`);
+    const prompt = `Provide a summary and actionable steps for the concept '${concept}'. Respond in Markdown format.`;
     try {
-        return result;
+        return await generateGeminiText(prompt);
     } catch (e) {
+        console.error("Failed to get concept summary from AI. Returning mock data.", e);
         return "### Mock Summary\nThis is a mock summary of the concept.\n\n### Mock Actionable Steps\n- Step 1\n- Step 2";
     }
 };
 
 export const getTakeActionPlan = async (item: ScoreComponent): Promise<TakeActionPlan> => {
-    console.log(`Mock AI: getTakeActionPlan for item: ${item.item}`);
-    const prompt = `Generate a take action plan for the score component '${item.item}' in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: getTakeActionPlan for item: ${item.item}`);
+    const prompt = `Generate a "Take Action Plan" for improving the score component '${item.item}'. Include time estimates and resource links. Respond in JSON format: {"estimatedTime": string, "youtubeSuggestions": [], "googleAssistance": [], "outsideGoogle": []}`;
     try {
-        return JSON.parse(result) as TakeActionPlan;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<TakeActionPlan>(result);
     } catch (e) {
+        console.error("Failed to get action plan from AI. Returning mock data.", e);
         return mockTakeActionPlan;
     }
 };
 
 export const getImprovementTips = async (item: ScoreComponent): Promise<ImprovementTips> => {
-    console.log(`Mock AI: getImprovementTips for item: ${item.item}`);
-    const prompt = `Generate improvement tips for the score component '${item.item}' in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: getImprovementTips for item: ${item.item}`);
+    const prompt = `Generate improvement tips for the score component '${item.item}'. Respond in JSON format: {"tipsText": string, "videoSuggestions": []}`;
     try {
-        return JSON.parse(result) as ImprovementTips;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<ImprovementTips>(result);
     } catch (e) {
+        console.error("Failed to get improvement tips from AI. Returning mock data.", e);
         return mockImprovementTips;
     }
 };
 
 export const analyzePatentStrength = async (documentName: string, documentUrl: string): Promise<IpAnalysisReport> => {
-    console.log(`Mock AI: analyzePatentStrength for document: ${documentName}`);
-    const prompt = `Analyze the patent strength of the document ${documentName} at ${documentUrl} and provide a report in JSON format.`
-    const result = await generateGeminiText(prompt);
+    console.log(`AI Service: analyzePatentStrength for document: ${documentName}`);
+    const prompt = `Analyze the patent strength of the document ${documentName} found at ${documentUrl}. Provide a detailed report. Respond in JSON format: {"tier": string, "summary": string, "strengths": string[], "weaknesses": string[], "score": number, ...}`;
     try {
-        return JSON.parse(result) as IpAnalysisReport;
+        const result = await generateGeminiText(prompt);
+        return cleanAndParseJson<IpAnalysisReport>(result);
     } catch (e) {
+        console.error("Failed to analyze patent strength with AI. Returning mock data.", e);
         return mockIpAnalysisReport;
     }
 };

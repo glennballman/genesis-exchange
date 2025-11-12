@@ -1,0 +1,4 @@
+entrypoint: npm run dev
+env:
+  - variable: BUNDLER
+    value: vite

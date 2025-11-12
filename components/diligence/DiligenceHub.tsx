@@ -32,6 +32,33 @@ const DiligenceHub: React.FC = () => {
         refreshPackages();
     };
 
+    const handleTestAi = async () => {
+        const testInvestorEmail = `
+            Subject: Follow-up from our chat - Genesis Exchange Diligence Request
+
+            Hi team,
+
+            Following up on our conversation. We're excited about the potential of Genesis Exchange.
+
+            To proceed, we'll need to see the following:
+            1. Your latest pitch deck and financial model.
+            2. A cap table.
+            3. Bios of the key team members.
+            4. Any patents or provisional patents you have filed.
+
+            Looking forward to reviewing.
+
+            Best,
+
+            Chris
+            ACME Ventures
+        `;
+        console.log("--- STARTING AI TEST ---");
+        const newPackageId = await diligenceService.createPackageFromText("ACME Ventures", testInvestorEmail, "EMAIL");
+        console.log(`--- New package created with ID: ${newPackageId} ---`);
+        refreshPackages();
+    };
+
     return (
         <>
             <div className="space-y-8">
@@ -40,10 +67,16 @@ const DiligenceHub: React.FC = () => {
                         <h1 className="text-3xl font-bold tracking-tight text-white">Diligence Hub</h1>
                         <p className="mt-1 text-gray-400">Manage investor data requests with your AI-powered Diligence Concierge.</p>
                     </div>
-                    <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 font-semibold text-white bg-cyan-600 rounded-md hover:bg-cyan-500 transition-colors">
-                        <Icon name="wizard" className="w-5 h-5" />
-                        Start New Diligence Request
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleTestAi} className="flex items-center gap-2 px-4 py-2 font-semibold text-white bg-green-600 rounded-md hover:bg-green-500 transition-colors">
+                            <Icon name="beaker" className="w-5 h-5" />
+                            Test AI
+                        </button>
+                        <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 font-semibold text-white bg-cyan-600 rounded-md hover:bg-cyan-500 transition-colors">
+                            <Icon name="wizard" className="w-5 h-5" />
+                            Start New Diligence Request
+                        </button>
+                    </div>
                 </div>
 
                 <Card className="!p-0">

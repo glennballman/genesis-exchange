@@ -1,236 +1,119 @@
 
+const functions = require('firebase-functions');
 const express = require('express');
-const { setGlobalOptions } = require('firebase-functions/v2');
-const { onRequest } = require('firebase-functions/v2/https');
-const admin = require('firebase-admin');
-const { VertexAI } = require('@google-cloud/vertexai');
+const cors = require('cors');
+const {getFirestore} = require('firebase-admin/firestore');
+const {initializeApp} = require('firebase-admin/app');
 
-admin.initializeApp();
-const db = admin.firestore();
+// Initialize Firebase Admin SDK
+initializeApp();
+
+// Get a reference to the Firestore database
+const db = getFirestore();
+
+// Create an Express app
 const app = express();
 
+// Use CORS middleware to allow cross-origin requests
+app.use(cors({origin: true}));
+
+// Use express.json() middleware to parse JSON request bodies
 app.use(express.json());
 
-// Set global options for all functions in this file
-setGlobalOptions({ region: 'us-central1', timeoutSeconds: 540 });
+// Define a route to get all score components
+app.get('/api/score-components', async (req, res) => {
+  try {
+    const snapshot = await db.collection('scoreComponents').get();
+    const components = snapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
+    res.json(components);
+  } catch (error) {
+    console.error('Error fetching score components:', error);
+    res.status(500).send('Error fetching score components');
+  }
+});
 
-// --- Gemini API Endpoint ---
+// Define a route to get the score history
+app.get('/api/score-history', async (req, res) => {
+  try {
+    const snapshot = await db.collection('scoreHistory').orderBy('date', 'desc').get();
+    const history = snapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
+    res.json(history);
+  } catch (error) {
+    console.error('Error fetching score history:', error);
+    res.status(500).send('Error fetching score history');
+  }
+});
+
+// Define a route to get all documents from the vault
+app.get('/api/vault/documents', async (req, res) => {
+  try {
+    const snapshot = await db.collection('vault').get();
+    const documents = snapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
+    res.json(documents);
+  } catch (error) {
+    console.error('Error fetching vault documents:', error);
+    res.status(500).send('Error fetching vault documents');
+  }
+});
+
+// Define a route to get the team members
+app.get('/api/team', async (req, res) => {
+  try {
+    const snapshot = await db.collection('team').get();
+    const team = snapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
+    res.json(team);
+  } catch (error) {
+    console.error('Error fetching team:', error);
+    res.status(500).send('Error fetching team');
+  }
+});
+
+// Define a route to get the completed modules
+app.get('/api/completed-modules', async (req, res) => {
+  try {
+    const snapshot = await db.collection('completedModules').get();
+    const modules = snapshot.docs.map((doc) => ({id: doc.id, ...doc.data()}));
+    res.json(modules);
+  } catch (error) {
+    console.error('Error fetching completed modules:', error);
+    res.status(500).send('Error fetching completed modules');
+  }
+});
+
+// A 'Hello World' endpoint
+app.get('/api/hello', (req, res) => {
+  res.send('Hello from the Genesis Exchange API!');
+});
+
+const {VertexAI} = require('@google-cloud/vertex-ai');
+
+// Initialize Vertex AI
+const vertex_ai = new VertexAI({project: 'genesis-exchange', location: 'us-central1'});
+const model = 'gemini-1.0-pro-001';
+
+const generativeModel = vertex_ai.preview.getGenerativeModel({
+  model: model,
+  generationConfig: {
+    maxOutputTokens: 2048,
+    temperature: 0.2,
+    topP: 0.8,
+    topK: 40,
+  },
+});
 
 app.post('/api/gemini-generate', async (req, res) => {
-    const { prompt } = req.body;
-    console.log('Received request for /api/gemini-generate');
+  const {prompt} = req.body;
 
-    if (!prompt) {
-        console.error('Prompt is required');
-        return res.status(400).send({ error: 'Prompt is required' });
-    }
-
-    try {
-        console.log('Initializing VertexAI');
-        const vertex_ai = new VertexAI({ project: 'genesis-exchangegit-0347-f7873', location: 'us-central1' });
-        const model = 'gemini-1.5-flash-001';
-
-        const generativeModel = vertex_ai.getGenerativeModel({
-            model: model,
-            generationConfig: {
-                'maxOutputTokens': 8192,
-                'temperature': 1,
-                'topP': 0.95,
-            },
-        });
-
-        const request = {
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        };
-
-        console.log('Sending request to Gemini API...');
-        const startTime = Date.now();
-        const result = await generativeModel.generateContent(request);
-        const endTime = Date.now();
-        console.log(`Gemini API call took ${endTime - startTime}ms`);
-
-        if (result && result.response && result.response.candidates && result.response.candidates.length > 0 && result.response.candidates[0].content && result.response.candidates[0].content.parts && result.response.candidates[0].content.parts.length > 0) {
-            const content = result.response.candidates[0].content.parts[0].text;
-            console.log('Successfully received response from Gemini API');
-            res.send({ generated_text: content });
-        } else {
-            console.error('Invalid or empty response from Gemini API:', JSON.stringify(result, null, 2));
-            res.status(500).send({ error: 'Received an invalid response from the AI model.' });
-        }
-
-    } catch (error) {
-        console.error('Error in /api/gemini-generate:', error);
-        res.status(500).send({ error: 'An error occurred while communicating with the Gemini API.', details: error.message });
-    }
+  try {
+    const [response] = await generativeModel.generateContent([prompt]);
+    const text = response.candidates[0].content.parts[0].text;
+    res.json({text});
+  } catch (error) {
+    console.error('Error generating text with Gemini API:', error);
+    res.status(500).send('Error generating text with Gemini API');
+  }
 });
 
 
-// --- Mock Data (for other endpoints) ---
-const mockVaultDocuments = [
-    { id: 'doc1', vaultId: 'legal', name: 'Incorporation Agreement', type: 'pdf', uploadedAt: '2023-10-26' },
-];
-const mockScoreComponents = [
-    { category: 'IP', item: 'Patents', points: 100, max_points: 200 },
-];
-const mockScoreHistory = [
-    { date: '2023-01-01', score: 500 },
-];
-const mockCompletedModules = [
-    { id: 'm1', name: 'Introduction to Genesis', completedAt: '2023-10-01' },
-];
-
-const genesisScoreData = {
-  name: "Genesis Score (v3.0 - 1,000,000 Max Score)",
-  max_score: 1000000,
-  scoring_layers: [
-    {
-      layer_name: "Base Pillars (700,000 points total)",
-      description: "Scaled v2.5 score for timeless moats, based on traditional diligence categories.",
-      pillars: [
-        { name: "Team", max_points: 150000, details: "Management experience, education, previous exits, specific roles.", current_points: 125000 },
-        { name: "IP", max_points: 100000, details: "Patents (received/pending), trademarks, trade secrets, holder employment.", current_points: 75000 },
-        { name: "DD Preparedness", max_points: 150000, details: "Completeness of DD documents (biz plan, investor deck), financial granularity.", current_points: 140000 },
-        { name: "Distribution/Market", max_points: 100000, details: "E-commerce presence, product market fit validation, market value, customer base.", current_points: 60000 },
-        { name: "Traction/Health", max_points: 150000, details: "Revenue (historical/projected), profitability, cash runway, burn rate.", current_points: 95000 },
-        { name: "GUMP (Genesis U Mastery Pillar)", max_points: 50000, details: "Soft skills, vocabulary, investor relations, legal compliance training.", current_points: 35000 }
-      ]
-    }
-  ],
-  nuance_overlays: [
-    {
-      layer_name: "Nuance Overlays (300,000 points total)",
-      description: "Dynamic multipliers for specific strategic advantages or contextual relevance.",
-      overlays: [
-        { name: "Stealth Moat Layer (SML)", max_points: 100000, details: "Quantifies non-public, defensible advantages (e.g., classified grants, security clearances).", current_points: 80000 },
-        { name: "Cultural Fluency Layer (CFL / GUMP)", max_points: 100000, details: "Measures mastery of investor-specific cultural cues, soft skills, and vocabulary.", current_points: 45000 },
-        { name: "Regulatory Tailwind Layer (RTL)", max_points: 100000, details: "Scores impact of legislative/government changes as positive or negative multipliers.", current_points: 20000 }
-      ]
-    }
-  ],
-  innovation_horizon: [
-    {
-        layer_name: "Innovation Horizon (Potential)",
-        description: "Headroom for dynamic, future-proof additions and game-changing technologies.",
-        modules: [
-          { name: "AI/Compute Wave", details: "Agentic AI, hybrid AI ethics, quantum AI integration." },
-          { name: "Quantum/Secure Tech", details: "Quantum-safe encryption, entangled sim readiness." },
-          { name: "Reg/Sustain Shifts", details: "SEC 2.0 leverage, carbon audit moats." }
-        ]
-    }
-  ]
-};
-
-// --- Team Management Firestore Endpoints ---
-
-// GET all team members
-app.get('/api/team', async (req, res) => {
-    try {
-        const snapshot = await db.collection('teamMembers').get();
-        const members = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        res.json(members);
-    } catch (error) {
-        console.error("Error fetching team members:", error);
-        res.status(500).send({ error: 'Failed to fetch team members' });
-    }
-});
-
-// POST a new team member
-app.post('/api/team', async (req, res) => {
-    try {
-        const { name, title, avatar } = req.body;
-        if (!name || !title) {
-            return res.status(400).send({ error: 'Name and title are required' });
-        }
-        const newMember = {
-            name,
-            title,
-            avatar: avatar || '/avatars/default.jpg',
-        };
-        const docRef = await db.collection('teamMembers').add(newMember);
-        res.status(201).json({ id: docRef.id, ...newMember });
-    } catch (error) {
-        console.error("Error adding team member:", error);
-        res.status(500).send({ error: 'Failed to add team member' });
-    }
-});
-
-// PUT (update) a team member
-app.put('/api/team/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { name, title } = req.body;
-        const memberRef = db.collection('teamMembers').doc(id);
-        const doc = await memberRef.get();
-
-        if (!doc.exists) {
-            return res.status(404).send({ error: 'Team member not found' });
-        }
-
-        await memberRef.update({ name, title });
-        res.json({ id, name, title });
-    } catch (error) {
-        console.error("Error updating team member:", error);
-        res.status(500).send({ error: 'Failed to update team member' });
-    }
-});
-
-// DELETE a team member
-app.delete('/api/team/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const memberRef = db.collection('teamMembers').doc(id);
-        const doc = await memberRef.get();
-
-        if (!doc.exists) {
-            return res.status(404).send({ error: 'Team member not found' });
-        }
-
-        await memberRef.delete();
-        res.status(204).send();
-    } catch (error) {
-        console.error("Error deleting team member:", error);
-        res.status(500).send({ error: 'Failed to delete team member' });
-    }
-});
-
-
-// --- Other API Endpoints ---
-
-app.get('/api/genesis-score', (req, res) => {
-    res.json(genesisScoreData);
-});
-
-app.get('/api/vault/documents', (req, res) => {
-    res.json(mockVaultDocuments);
-});
-
-app.get('/api/score-components', (req, res) => {
-    res.json(mockScoreComponents);
-});
-
-app.post('/api/score-components/verification-bonus', (req, res) => {
-    console.log('Verification bonus added:', req.body);
-    res.status(201).send({ message: 'Bonus added' });
-});
-
-app.post('/api/score-components/team-verification-bonus', (req, res) => {
-    console.log('Team verification bonus added:', req.body);
-    res.status(201).send({ message: 'Bonus added' });
-});
-
-app.post('/api/score-components/ip-analysis-bonus', (req, res) => {
-    console.log('IP analysis bonus added:', req.body);
-    res.status(201).send({ message: 'Bonus added' });
-});
-
-app.get('/api/score-history', (req, res) => {
-    res.json(mockScoreHistory);
-});
-
-app.get('/api/completed-modules', (req, res) => {
-    res.json(mockCompletedModules);
-});
-
-
-// Expose the Express app as a Firebase Function
-exports.api = onRequest(app);
+// Export the Express app as a Firebase Function
+exports.api = functions.https.onRequest(app);
